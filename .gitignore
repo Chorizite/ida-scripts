@@ -1,0 +1,16 @@
+.vscode
+tmp
+__pycache__
+*.sqlite
+*.map
+*.txt
+*.log
+*.pdb
+*.exe
+*.dll
+*.lib
+*.exp
+*.obj
+*.res
+*.rc
+*.ico
