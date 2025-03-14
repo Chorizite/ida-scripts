@@ -5,7 +5,9 @@ import ida_funcs
 import ida_name
 import ida_struct
 import ida_bytes
+import ida_kernwin
 import importlib
+import math
 
 import lib.idahelpers as idahelpers
 importlib.reload(idahelpers)
@@ -21,8 +23,17 @@ def dump_method_stackframes(cursor):
     frame_count = 0
     member_count = 0
     
+    # Get total function count for progress
+    total_funcs = len(list(idautils.Functions()))
+    processed_funcs = 0
+    
     # Iterate through all functions in the database
     for func_ea in idautils.Functions():
+        processed_funcs += 1
+        if processed_funcs % (max(math.floor(total_funcs / 100), 100)) == 0:
+            percentage = (processed_funcs / total_funcs) * 100
+            ida_kernwin.replace_wait_box(f"Exporting function stack frames... ({processed_funcs}/{total_funcs}) - {percentage:.1f}%")
+        
         # Get the function object
         func = ida_funcs.get_func(func_ea)
         if not func:

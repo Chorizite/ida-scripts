@@ -1,8 +1,8 @@
 """
 Exports data from a pdb client ida session
 
+- make sure you build diaphora dbs first (see readme)
 - open pdb acclient.exe (load pdb)
-- wait for build
 - File -> Script File -> export-pdb-data.py
 
 """
@@ -10,6 +10,8 @@ Exports data from a pdb client ida session
 import os
 import sqlite3
 import importlib
+import math
+import ida_kernwin
  
 import lib.exporters.symbols_exporter as symbols_exporter
 import lib.exporters.diaphora_exporter as diaphora_exporter
@@ -27,9 +29,13 @@ def get_file_path(relative_path):
     path += "/"
   return path
 
-tmp_dir = get_file_path("../")
+# File paths
 log_dir = get_file_path("../")
-db_path = tmp_dir + "pdbdata.sqlite"
+db_path = get_file_path("../pdbdata.sqlite")
+diff_db_path = get_file_path("../diff.sqlite")
+pdb_db_path = get_file_path("../pdb/acclient.exe.sqlite")
+yonneh_map_path = get_file_path("data/yonneh.map")
+unmatched_symbols_path = log_dir + "unmatched_symbols.txt"
 
 def create_tables(cursor):
     # Create tables if they don't exist
@@ -106,6 +112,13 @@ def create_tables(cursor):
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_stackframes_func_name ON method_stackframes(function_name)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_stackframes_func_addr ON method_stackframes(function_address)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_members_frame_id ON stackframe_members(frame_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_diaphora_map_mapped_addr ON diaphora_map(mapped_address)')
+    
+    # Add new indexes for performance
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_symbols_section ON symbols(section)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_diaphora_multimatches_address ON diaphora_multimatches(address)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_diaphora_map_symbol ON diaphora_map(symbol)')
 
 def is_undefined_function_name(name):
     """Check if a function name is undefined."""
@@ -124,12 +137,19 @@ def print_unmatched_symbols(cursor):
     ''')
     
     unmatched = cursor.fetchall()
+    total_symbols = len(unmatched)
+    print(f"    [+] Found {total_symbols:,} symbols to process")
     
     total_unmatched = 0
+    current = 0
     # log unmatched symbols
-    with open(log_dir + "unmatched_symbols.txt", "w") as f:
+    with open(unmatched_symbols_path, "w") as f:
       if unmatched:
           for name, addr in unmatched:
+              current += 1
+              if current % (max(math.floor(total_symbols / 100), 100)) == 0:
+                  ida_kernwin.replace_wait_box(f"Checking for unmatched symbols... {current:,}/{total_symbols:,} ({(current/total_symbols)*100:.1f}%)")
+              
               if is_undefined_function_name(name): continue
               f.write(f"{name} at 0x{addr:x}\n")
               total_unmatched += 1
@@ -149,19 +169,15 @@ def print_unmatched_symbols(cursor):
               else:
                   f.write("  - No potential matches found\n")
                 
-    print(f"    [+] Found Total {total_unmatched:,} unmatched subroutine symbols (logged to {log_dir}unmatched_symbols.txt)")
+    print(f"    [+] Found Total {total_unmatched:,} unmatched subroutine symbols (logged to {unmatched_symbols_path})")
 
 
 def main():
-    global tmp_dir, log_dir, db_path
+    global tmp_dir, log_dir, db_path, diff_db_path, pdb_db_path, yonneh_map_path, unmatched_symbols_path
     print("[+] Exporting pdb client data")
     print(f"  [+] db_path: {db_path}")
 
-    # Clear existing database
-    if not os.path.exists(tmp_dir):
-        os.makedirs(tmp_dir)
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    # Clear existing database, make log dirs
     if os.path.exists(db_path):
         os.remove(db_path)
 
@@ -170,18 +186,14 @@ def main():
     cursor = conn.cursor()
 
     create_tables(cursor)
+    # Export subroutine symbols
+    symbols_exporter.dump_subroutines(cursor)
 
     # Export data symbols
     symbols_exporter.dump_segment_symbols(".data", cursor)
     symbols_exporter.dump_segment_symbols(".rdata", cursor)
 
-    # Export subroutine symbols
-    symbols_exporter.dump_subroutines(cursor)
-
     # Export diaphora map
-    diff_db_path = get_file_path("../out.sqlite") 
-    pdb_db_path = get_file_path("../pdb/acclient.exe.sqlite")
-
     if not os.path.exists(diff_db_path):
       print(f"  [-] Error: diff_db_path does not exist: {diff_db_path}")
       return
@@ -193,8 +205,6 @@ def main():
     diaphora_exporter.export_diaphora_multimatches(diff_db_path, pdb_db_path, cursor)
 
     # Export yonneh map
-    yonneh_map_path = get_file_path("data/yonneh.map")
-
     if not os.path.exists(yonneh_map_path):
       print(f"  [-] Error: yonneh_map_path does not exist: {yonneh_map_path}")
       return

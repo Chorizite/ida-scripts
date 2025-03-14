@@ -5,7 +5,8 @@ import sqlite3
 import importlib
 import os
 import ida_typeinf
-
+import ida_kernwin
+import math
 import lib.idahelpers as idahelpers
 importlib.reload(idahelpers) 
 
@@ -16,8 +17,15 @@ def dump_subroutines(cursor):
     symbol_count = 0
     xref_count = 0
     
+    # Get total function count first for progress
+    total_funcs = len(list(idautils.Functions()))
+    
     # Iterate through all functions in the database
-    for func_ea in idautils.Functions():
+    for i, func_ea in enumerate(idautils.Functions(), 1):
+        # Show progress every 100 functions
+        if i % (max(math.floor(total_funcs / 100), 100)) == 0:
+            ida_kernwin.replace_wait_box(f"Exporting functions... {i:,}/{total_funcs:,} ({(i/total_funcs)*100:.1f}%)")
+            
         # Get function name
         name = idc.get_func_name(func_ea)
         if not name:
@@ -74,10 +82,6 @@ def dump_subroutines(cursor):
     return True, symbol_count, xref_count
 
 def dump_segment_symbols(segment_name, cursor):
-    # For .text segment, use the new dump_subroutines function
-    if segment_name == ".text":
-        return dump_subroutines(cursor)
-        
     seg = idahelpers.find_named_segment(segment_name)
     
     if not seg:
@@ -92,7 +96,14 @@ def dump_segment_symbols(segment_name, cursor):
     symbol_count = 0
     xref_count = 0
     
-    for addr in range(seg_start, seg_end):
+    # Calculate total addresses to process
+    total_addrs = seg_end - seg_start
+    
+    for i, addr in enumerate(range(seg_start, seg_end), 1):
+        # Show progress every 10000 addresses
+        if i % (max(math.floor(total_addrs / 100), 100)) == 0:
+            ida_kernwin.replace_wait_box(f"Exporting {segment_name} symbols... {i:,}/{total_addrs:,} ({(i/total_addrs)*100:.1f}%)")
+            
         # Check if there's a named item at this address
         name = idc.get_name(addr)
         if name and idahelpers.is_named_data_symbol(name):
