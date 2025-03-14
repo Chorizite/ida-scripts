@@ -2,18 +2,15 @@ import os
 import idaapi
  
 
-import lib.symbols_importer
-import lib.frame_importer
-import lib.data_symbols_importer
+import lib.importers.symbols_importer
+import lib.importers.frame_importer
+import lib.importers.data_symbols_importer
 
 import importlib 
-importlib.reload(lib.symbols_importer) 
-importlib.reload(lib.frame_importer) 
-importlib.reload(lib.data_symbols_importer) 
+importlib.reload(lib.importers.symbols_importer) 
+importlib.reload(lib.importers.frame_importer) 
+importlib.reload(lib.importers.data_symbols_importer) 
 
-import lib.symbols_importer
-import lib.frame_importer
-import lib.data_symbols_importer
 
 """
 Sets up a new acclient.exe eor database in ida.
@@ -30,12 +27,12 @@ def get_file_path(relative_path):
   return os.path.join(script_dir, relative_path)
 
 def main():
+  return
   print("Setting up")
 
   db_file = get_file_path("tmp/pdbdata.sqlite")
-  lib.data_symbols_importer.load_and_compare_symbols(db_file)
+  lib.importers.data_symbols_importer.load_and_compare_symbols(db_file)
 
-  return
   print(f"Updating method args")
   lib.frame_importer.update_function_args(get_file_path("data/dumped_function_args.txt"))
 
