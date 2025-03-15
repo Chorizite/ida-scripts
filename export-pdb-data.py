@@ -16,10 +16,12 @@ import ida_kernwin
 import lib.exporters.symbols_exporter as symbols_exporter
 import lib.exporters.diaphora_exporter as diaphora_exporter
 import lib.exporters.method_stackframe_exporter as method_stackframe_exporter
+import lib.exporters.pstring_array_exporter as pstring_array_exporter
 
 importlib.reload(symbols_exporter)
 importlib.reload(diaphora_exporter)
 importlib.reload(method_stackframe_exporter)
+importlib.reload(pstring_array_exporter)
 
 def get_file_path(relative_path):
   """Returns the absolute path of a file relative to the script's directory."""
@@ -108,6 +110,28 @@ def create_tables(cursor):
         FOREIGN KEY (frame_id) REFERENCES method_stackframes (id)
     )
     ''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS pstring_arrays (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        array_name TEXT NOT NULL,
+        array_address INTEGER NOT NULL,
+        array_size INTEGER NOT NULL,
+        cleanup_func TEXT NOT NULL,
+        data_size INTEGER NOT NULL
+    )
+    ''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS pstring_array_members (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        array_id INTEGER NOT NULL,
+        member_index INTEGER NOT NULL,
+        member_name TEXT NOT NULL,
+        member_value TEXT NOT NULL,
+        FOREIGN KEY (array_id) REFERENCES pstring_arrays (id)
+    )
+    ''')
     
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_stackframes_func_name ON method_stackframes(function_name)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_stackframes_func_addr ON method_stackframes(function_address)')
@@ -119,6 +143,16 @@ def create_tables(cursor):
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_diaphora_multimatches_address ON diaphora_multimatches(address)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_diaphora_map_symbol ON diaphora_map(symbol)')
+    
+    # Add indexes to optimize data_xrefs queries
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_data_xrefs_symbol_id ON data_xrefs(symbol_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_data_xrefs_function ON data_xrefs(xref_function)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_data_xrefs_composite ON data_xrefs(symbol_id, xref_function, xref_offset, xref_type)')
+
+    # Add indexes for pstring arrays
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_pstring_arrays_name ON pstring_arrays(array_name)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_pstring_arrays_address ON pstring_arrays(array_address)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_pstring_array_members_array_id ON pstring_array_members(array_id)')
 
 def is_undefined_function_name(name):
     """Check if a function name is undefined."""
@@ -186,6 +220,7 @@ def main():
     cursor = conn.cursor()
 
     create_tables(cursor)
+
     # Export subroutine symbols
     symbols_exporter.dump_subroutines(cursor)
 
@@ -213,6 +248,9 @@ def main():
 
     # Export stack frames
     method_stackframe_exporter.dump_method_stackframes(cursor)
+
+    # Export PStringBase arrays
+    pstring_array_exporter.dump_pstring_arrays(cursor)
 
     # Print unmatched symbols report
     print_unmatched_symbols(cursor)

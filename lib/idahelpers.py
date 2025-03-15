@@ -74,7 +74,7 @@ def find_named_segment(name):
     return None
 
 def is_named_data_symbol(name):
-    badstarts = ["$", "jpt_", "locret_", "def_", "byte_" "unk_", "sub_", "nullsub_", "loc_", "stru_", "off_", "asc_", "word_", "dword_", "xmmword_"]
+    badstarts = ["$", "jpt_", "locret_", "def_", "byte_" "unk_", "sub_", "nullsub_", "loc_", "stru_", "off_", "asc_", "word_", "dword_", "xmmword_", "flt_", "dbl_"]
     for badstart in badstarts:
         if name.startswith(badstart):
             return False
@@ -414,3 +414,143 @@ def get_function_stack_return_offset(func_addr):
         member_offset = ida_struct.get_struc_next_offset(frame, member_offset)
     
     return -1
+
+def get_function_disasm_lines(ea):
+    disasm_lines = []
+    func = idaapi.get_func(ea)
+    if not func:
+        return []
+    curr_ea = func.start_ea
+    while curr_ea < func.end_ea:
+        line = idc.GetDisasm(curr_ea)
+        if line:
+            disasm_lines.append(line)
+        curr_ea = idc.next_head(curr_ea)
+    return disasm_lines
+
+def is_function_disasm_match(ea, patterns, strict=True):
+    """
+    Check if a function's disassembly matches a list of regex patterns.
+    
+    Args:
+        ea: Function address
+        patterns: List of regex patterns to match against each line of disassembly
+        strict: If True, requires exact number of lines to match patterns
+               If False, allows additional lines between matches
+    
+    Returns:
+        (success, matches) tuple where:
+            success: Boolean indicating if all patterns matched
+            matches: Dictionary of named capture groups from the patterns
+    """
+    func = idaapi.get_func(ea)
+    if not func:
+        return False, {}
+        
+    # Get function disassembly
+    disasm_lines = get_function_disasm_lines(ea)
+        
+    matches = {}
+    pattern_idx = 0
+    line_idx = 0
+    
+    while pattern_idx < len(patterns) and line_idx < len(disasm_lines):
+        pattern = patterns[pattern_idx]
+        line = disasm_lines[line_idx]
+        
+        # Skip lines that don't contain instructions
+        if not line.strip() or line.startswith(';'):
+            line_idx += 1
+            continue
+            
+        # Try to match the current pattern
+        match = re.search(pattern, line)
+        if match:
+            # Add named groups to matches dict
+            matches.update(match.groupdict())
+            pattern_idx += 1
+            line_idx += 1
+        else:
+            if strict:
+                return False, {}
+            line_idx += 1
+            
+    # Check if we matched all patterns
+    if pattern_idx < len(patterns):
+        return False, {}
+        
+    return True, matches
+
+
+
+def get_string_array_initializer_members(ea):
+    func = idaapi.get_func(ea)
+    if not func:
+        return False, None, None, []
+        
+    func_name = idc.get_func_name(func.start_ea)
+
+    # Get function disassembly
+    disasm_lines = []
+    curr_ea = func.start_ea
+    while curr_ea < func.end_ea:
+        line = idc.GetDisasm(curr_ea)
+        if line:
+            disasm_lines.append(line)
+        curr_ea = idc.next_head(curr_ea)
+        
+    members = []
+    line_idx = 0
+
+    array_name = None
+    cleanup_func = None
+    while line_idx < len(disasm_lines):
+        line = disasm_lines[line_idx]
+        
+        match = re.search(r"push\s+offset\s+(?P<string_name>\S+)", line)
+        if match:
+            members.append(match.group('string_name').strip(';'))
+            line_idx += 1
+            line = disasm_lines[line_idx]
+        else:
+            return False, None, None, []
+        
+        if "mov     ecx," in line:
+            if array_name is None:
+                array_name = line.split("offset ")[1].split(" ")[0].strip(';')
+            line_idx += 1
+            line = disasm_lines[line_idx]
+        else:
+            return False, None, None, []
+        
+        if "call" in line and "PStringBase" in line:
+            line_idx += 1
+            line = disasm_lines[line_idx]
+        else:
+            return False, None, None, []
+        
+        # check for ending
+        if "retn" in disasm_lines[line_idx + 3] and "_atexit" in disasm_lines[line_idx + 1]:
+            cleanup_func = line.split("offset ")[1].split(" ")[0].strip(';')
+            break
+
+    return True, array_name, cleanup_func, members
+
+
+def name_until_free_index(ea, name):
+  """Return the name until the first free index"""
+
+  # if the name already ends with an index, don't add another one
+  if name.split("_")[-1].isdigit():
+    new_name = name
+    name = "_".join(name.split("_")[:-1])
+  else:
+    new_name = name
+
+  idx = 1
+  while not ida_name.set_name(ea, new_name, ida_name.SN_NOWARN):
+    new_name = f"{name}_{idx}"
+    idx += 1
+    if idx > 1000:  # Prevent infinite loop
+      break
+  return new_name.split("_")[-1] 

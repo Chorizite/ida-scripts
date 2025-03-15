@@ -8,12 +8,22 @@ Imports data into a pdb client ida session
 """
 
 import os
+import idaapi
 import sqlite3
+import ida_kernwin
+import idautils
+import idc
+import ida_name
 import importlib
-
 import lib.importers.symbols_importer as symbols_importer
+import lib.importers.data_symbols_importer as data_symbols_importer
+import lib.importers.method_stackframe_importer as method_stackframe_importer
+import lib.importers.symbols_renamer as symbols_renamer
 
 importlib.reload(symbols_importer)
+importlib.reload(data_symbols_importer)
+importlib.reload(method_stackframe_importer)
+importlib.reload(symbols_renamer)
 
 def get_file_path(relative_path):
     """Returns the absolute path of a file relative to the script's directory."""
@@ -24,8 +34,37 @@ def get_file_path(relative_path):
     return path
 
 # File paths
-tmp_dir = get_file_path("../")
-db_path = tmp_dir + "pdbdata.sqlite"
+db_path = get_file_path("../pdbdata.sqlite")
+types_file = get_file_path("../pdb/types.idc")
+
+def print_stats(cursor):
+    compiler_count = 0
+    unnamed_count = 0
+    for func in idautils.Functions():
+        func_name = ida_name.get_name(func)
+        if func_name.startswith("sub_"):
+            unnamed_count += 1
+        if func_name.startswith("$"):
+            compiler_count += 1
+
+    print(f"  [+] Compiler subroutinescount: {compiler_count}")
+    print(f"  [+] Unnamed subroutines count: {unnamed_count}")
+
+def patch_buffer_symbols():
+    # get named item "Buffer" from ida .data section
+    buffer_ea = idc.get_name_ea_simple("Buffer")
+    if buffer_ea == idc.BADADDR:
+        print("[-] Error: Buffer symbol not found")
+        return
+
+    print(f"  [+] Buffer symbol found at {buffer_ea:08X}")
+
+    # convert the buffer int a bunch of dwords
+    buffer_size = idc.get_item_size(buffer_ea)
+    for i in range(buffer_size // 4):
+        dword_ea = buffer_ea + i * 4
+        idc.create_dword(dword_ea)
+        ida_name.set_name(dword_ea, f"unk_{dword_ea:X}", ida_name.SN_NOWARN)
 
 def main():
     global db_path
@@ -40,13 +79,33 @@ def main():
     # Connect to SQLite database
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
+    
+    # import types
+    print(f"  [+] Importing types from {types_file}")
+    idaapi.exec_idc_script(None, types_file, "main", None, 0)
+
+    # order is important here:
+    patch_buffer_symbols()
 
     # Import subroutine symbols
     symbols_importer.import_subroutines(cursor)
 
     # Import data symbols
-    #symbols_importer.import_segment_symbols(".data", cursor)
-    #symbols_importer.import_segment_symbols(".rdata", cursor)
+    data_symbols_importer.load_and_compare_symbols(cursor)
+
+    # import method stackframes
+    method_stackframe_importer.import_method_stackframes(cursor)
+
+    # rename patterned subroutines
+    symbols_renamer.rename_patterned_subroutines(cursor)
+
+    # rename unnamed subroutines
+    symbols_importer.rename_unnamed_subroutines(cursor)
+
+    # hide wait box
+    ida_kernwin.hide_wait_box()
+
+    print_stats(cursor)
 
     # Commit changes and close connection
     conn.commit()
