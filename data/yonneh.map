@@ -95,7 +95,6 @@
 403170 ?InitPreferences@gmClient@@MAE_NXZ
 403270 ?InitAuth@gmClient@@MAE_NXZ
 403350 ?to_wpstring@?$PStringBase@D@@QBE?AV?$PStringBase@G@@G@Z
-403490 Client::SetAccountName
 4034C0 ?set@?$PStringBase@D@AC1Legacy@@QAEXPBD@Z
 403560 ?allocate_ref_buffer@?$PStringBase@D@AC1Legacy@@IAEXI@Z
 4035E0 ??_G?$PSRefBuffer@G@AC1Legacy@@UAEPAXI@Z
@@ -216,7 +215,6 @@
 4073F0 ?Clone@SmartBuffer@@QBE?AV1@XZ
 4074B0 ?ReconfigureAllocation@SmartBuffer@@QAEXIK@Z
 407550 ?AppendOutputText@ArgumentParser@@MAEXPBDW4OutputTextType@1@@Z
-407590 $L75465
 4075C0 ??A?$PStringBase@G@@QBEABGK@Z
 4075E0 ?SortCommandLineArgs@@YAHPBX0@Z
 407600 ?ParseArgs@ArgumentParser@@UAE_NABV?$SmartArray@V?$PStringBase@G@@$00@@_N@Z
@@ -1045,8 +1043,6 @@
 429A50 ?to_int32@?$PStringBase@D@@QBEJXZ
 429AB0 ??4BaseProperty@@QAEAAV0@ABV0@@Z
 429B10 ?CheckCopyOnWrite@BaseProperty@@IAEXXZ
-429BC0 BaseProperty::SetEnum
-429C00 BaseProperty::SetStringInfo
 429C70 ?begin@?$HashTable@KVBaseProperty@@$00@@QBE?AV?$HashIterator@KVBaseProperty@@$00@@XZ
 429EA0 ?ToFileNode@BaseProperty@@QBE_NPAVPFileNode@@@Z
 42A2D0 ?SetPropertyName@BaseProperty@@QAE_NK@Z
@@ -2224,7 +2220,6 @@
 474C30 ??4Glyph@@QAEAAV0@ABV0@@Z
 474EC0 ??0Glyph@@QAE@GABVRGBAColor@@PAVFont@@PAVTextTag@@KK@Z
 474FF0 ?SetVisible@ContextMenu@@QAEX_N@Z
-4753D0 PropertyCollection::AddProperty
 476820 ?GetChildRecursiveTemplate@?$@VUIElement_Text@@@UIElement@@QBEPAVUIElement_Text@@K@Z
 4772D0 ?flush@?$List@UDialogInfo@@@@QAEXXZ
 477380 ?find@?$HashTable@KP6AXABVPropertyCollection@@@Z$0A@@@QBEPAP6AXABVPropertyCollection@@@ZABK@Z
@@ -2856,7 +2851,6 @@
 4A7410 ?DynamicCast@gm3DItemsUI@@UAEPAVUIElement@@K@Z
 4A7430 ?GetUIElementType@gm3DItemsUI@@UBEKXZ
 4A7440 ?Create@gm3DItemsUI@@SAPAVUIElement@@ABVLayoutDesc@@ABVElementDesc@@@Z
-4A74A0 j_UIElement::ListenToElementMessage
 4A74B0 ??_Egm3DItemsUI@@UAEPAXI@Z
 4A74F0 ?Register@gm3DItemsUI@@SAXXZ
 4A7510 ?PostInit@gm3DItemsUI@@UAEXXZ
@@ -3416,8 +3410,6 @@
 4CEEF0 ?DynamicCast@gmFloatyChatUI@@UAEPAVUIElement@@K@Z
 4CF040 ?Register@gmFloatyChatUI@@SAXXZ
 4CF930 j_?ListenToElementMessage@gmVitalsUI@@UAE?AW4UIElementMessageListenResult@@ABUUIElementMessageInfo@@@Z
-4CF940 j_UIElement::OnChildAction
-4CF950 j_UIElement::SetVisible
 4CF9A0 ?Register@gmFloatyVitalsUI@@SAXXZ
 4D0450 ?Register@gmFloatyToolbarUI@@SAXXZ
 4D1240 ?Register@gmFloatySideVitalsUI@@SAXXZ
@@ -3428,9 +3420,7 @@
 4D2FF0 j_?OnChildAction@ChatInterface@@MAE_NABVUIElement@@ABVInputEvent@@@Z
 4D3280 ?Register@gmFloatyMainChatUI@@SAXXZ
 4D3E20 ?Register@gmFloatyIndicatorsUI@@SAXXZ
-4D4920 j_gmExaminationUI::OnChildAction
 4D4B30 ?Register@gmFloatyExaminationUI@@SAXXZ
-4D5510 j_gmCombatPanelUI::ListenToElementMessage
 4D5720 ?Register@gmFloatyEnvPanelUI@@SAXXZ
 4D5D10 ?Register@gmFloatyCombatPanelUI@@SAXXZ
 4D6A30 ?Register@gmSpewBoxUI@@SAXXZ
@@ -3565,8 +3555,6 @@
 4DDE60 ??4?$HashList@KV?$List@K@@$00@@QAEAAV0@ABV0@@Z
 4DDEC0 ?ListenToElementMessage@gmKeyboardUI@@MAE?AW4UIElementMessageListenResult@@ABUUIElementMessageInfo@@@Z
 4DE000 ?RecvNotice_CloseDialog@gmKeyboardUI@@MAEXKABVPropertyCollection@@@Z
-4DE2D6 def_4DD3E5
-4DE324 jpt_4DD3E5
 4DE340 ?delete_contents@?$IntrusiveHashTable@KPAUHashListData@?$HashList@KV?$HashList@KV?$List@K@@$00@@$00@@$00@@QAEXXZ
 4DE3F0 ?push_tail@?$HashList@KV?$HashList@KV?$List@K@@$00@@$00@@QAE_NABKABV?$HashList@KV?$List@K@@$00@@@Z
 4DE4E0 ?delete_contents@?$IntrusiveHashList@KPAUHashListData@?$HashList@KV?$HashList@KV?$List@K@@$00@@$00@@$00@@QAEXXZ
@@ -4220,8 +4208,6 @@
 4FCBC0 ?AddRef@CLCache@@UBEKXZ
 4FCBD0 ?Release@CLCache@@UBEKXZ
 4FCBE0 ?UseTime@CLCache@@UAEXXZ
-4FCE71 def_4FCC70
-4FCE84 jpt_4FCC70
 4FCEB0 ?OnSaveRequestFinished@CLCache@@MAEXPAUCAsyncSaveRequest@@@Z
 4FCF30 ??_G?$AutoGrowHashTable@UQualifiedDataID@@PAVMissingIteration@@@@UAEPAXI@Z
 4FCF90 ??0CLCache@@QAE@XZ
@@ -4232,7 +4218,6 @@
 4FD0E0 ?ItemAttributesChanged_s@GenItemHolder@@SAXKH@Z
 4FD0F0 ?ServerSaysMoveItem_s@GenItemHolder@@SAXKKKKKHKK@Z
 4FD160 ?OnShutdown@IQueuedUIEventDeliverer@@UAEXXZ
-4FD170 IQueuedUIEventDeliverer::IQueuedUIEventDeliverer
 4FD180 ?UNPACK_TYPE@PackObj@@SAHAAHAAPAXAAI@Z
 4FD1B0 ?ALIGN_PTR@PackObj@@SAIAAPAX@Z
 4FD1F0 ?GetPackSize@?$PStringBase@D@AC1Legacy@@QBEIXZ
@@ -4455,7 +4440,6 @@
 5075A0 ?SetDetailTexturing@LScape@@QAE_NHHHH@Z
 507710 ?ChangeRegion@LScape@@QAEXXZ
 507730 ?update_loadpoint@LScape@@QAEXK@Z
-507820 Position::get_origin
 508200 ?grow@?$DArray@PAVCPhysicsObj@@@@QAEXK@Z
 508290 ?shrink@?$DArray@PAVCPhysicsObj@@@@QAEXK@Z
 508360 ?QueryInterface@CObjectMaint@@UAE?AVTResult@@ABUTurbine_GUID@@PAPAX@Z
@@ -5132,19 +5116,13 @@
 51F3B0 ?RemoveAction@RawMotionState@@QAEKXZ
 51F3E0 ??0InterpretedMotionState@@QAE@XZ
 51F420 ?Destroy@InterpretedMotionState@@QAEXXZ
-51F460 InterpretedMotionState::operator_eq
-51F4F0 InterpretedMotionState::AddAction
 51F550 ?ApplyMotion@InterpretedMotionState@@QAEXKABVMovementParameters@@@Z
 51F5E0 ?RemoveAction@InterpretedMotionState@@QAEKXZ
 51F610 ?GetNumActions@InterpretedMotionState@@QBEKXZ
 51F630 ?Destroy@RawMotionState@@QAEXXZ
 51F670 ?ApplyMotion@RawMotionState@@QAEXKABVMovementParameters@@@Z
 51F770 ??4RawMotionState@@QAEAAV0@ABV0@@Z
-51F820 RawMotionState::Pack
-51FAD0 RawMotionState::UnPack
-51FC90 InterpretedMotionState::InterpretedMotionState
 51FCC0 ??1InterpretedMotionState@@UAE@XZ
-51FCE0 InterpretedMotionState::Pack
 51FF10 ?UnPack@InterpretedMotionState@@UAEHAAPAXI@Z
 5200D0 ??1RawMotionState@@UAE@XZ
 5200F0 ??_GInterpretedMotionState@@UAEPAXI@Z
@@ -6554,7 +6532,6 @@
 556EB0 ?Init@CCommunicationSystem@@SAXXZ
 556ED0 ?IsUsingTurbineChat@CCommunicationSystem@@SAHXZ
 556EE0 ?OnSendToRoom@ChatInterfaceProvider@CCommunicationSystem@@UAGXKPBG0UtagBLOB@@@Z
-556EF0 nullsub_1893
 556F00 ?CSendToTurbineRoomByID@CCommunicationSystem@@SAHKPBGUtagBLOB@@1@Z
 5570E0 ?StartupTurbineChat@CCommunicationSystem@@SAHV?$PStringBase@D@AC1Legacy@@@Z
 557170 ?Cleanup@CCommunicationSystem@@SAXXZ
@@ -6731,22 +6708,18 @@
 55ADC0 ?ItemIsKnown@IAsheronsCallImpl@APIManager@@UAGJKPAH@Z
 55AE10 ?Release@IAsheronsCallImpl@APIManager@@UAGKXZ
 55AE40 ?GetItemName@IAsheronsCallImpl@APIManager@@UAGJKPAPAG@Z
-55AED0 APIManager::GetAsheronsCallImpl
 55AF00 ?Init@APIManager@@SAHXZ
 55B070 ?SetUIReady@APIManager@@SAXH@Z
 55B0A0 ?APIIsReady@APIManager@@SAHXZ
 55B0E0 ?WriteToChat@IAsheronsCallImpl@APIManager@@UAGJQAGW4eChatTypes@@@Z
 55B180 ??1PageData@@UAE@XZ
 55B1F0 ??_GPageData@@UAEPAXI@Z
-55B210 UIQueueManager::QueryInterface
 55B2E0 ?OnBeginCharacterSession@UIQueueManager@@QAEXXZ
-55B310 UIQueueManager::OnEndCharacterSession
 55B340 ?OnShutdown@UIQueueManager@@UAEXXZ
 55B430 ?CrucialOrderedEventsReceived@UIQueueManager@@IAEXXZ
 55B4A0 ?Pack@?$PackableList@VContentProfile@@@@UAEIAAPAXI@Z
 55B4F0 ?pack_size@?$PackableList@VContentProfile@@@@IAEIXZ
 55B530 ??0UIQueueManager@@QAE@PAV?$NIList@PAVNetBlob@@@@@Z
-55B5A0 UIQueueManager::UIQueueManager_Destructor
 55B5E0 ?InsertTail@?$PackableList@VContentProfile@@@@QAEKABVContentProfile@@@Z
 55B650 ?HandleStringUpdateEvents@UIQueueManager@@IAEKPAXIK@Z
 55B780 ?Flush@?$PackableList@VContentProfile@@@@QAEXXZ
@@ -7015,8 +6988,6 @@
 56B2C0 ?CompatibleCombatMode@ClientCombatSystem@@QAE_NW4COMBAT_MODE@@@Z
 56B340 ?ObjectIsAttackable@ClientCombatSystem@@QAE_NK@Z
 56B420 ?HandleMagicAction@ClientCombatSystem@@IAE_NABVInputEvent@@@Z
-56B4BA def_56B445
-56B4C0 jpt_56B445
 56B5A0 ?RepeatAttackInProgress@ClientCombatSystem@@QAE_NXZ
 56B5D0 ?SetPowerBarLevel@ClientCombatSystem@@IAEXM@Z
 56B5F0 ?HidePowerBar@ClientCombatSystem@@IAEXXZ
@@ -7041,8 +7012,6 @@
 56BDD0 ??0ClientCombatSystem@@QAE@XZ
 56BE20 ??_EClientCombatSystem@@MAEPAXI@Z
 56BE50 ?DoJump@ClientCombatSystem@@QAEX_N@Z
-56BFDF def_56BF3C
-56BFEC jpt_56BF3C
 56C050 ?GetDefaultCombatMode@ClientCombatSystem@@QAE?AW4COMBAT_MODE@@_N@Z
 56C160 ?HandleAttackerNotificationEvent@ClientCombatSystem@@QAEXABV?$PStringBase@D@AC1Legacy@@W4DAMAGE_TYPE@@NJH_J@Z
 56C570 ?PlayerInReadyPosition@ClientCombatSystem@@QAE_N_N@Z
@@ -7064,9 +7033,6 @@
 56D640 ?SetRequestedAttackHeight@ClientCombatSystem@@QAEXW4ATTACK_HEIGHT@@@Z
 56D670 ?HandleDefenderNotificationEvent@ClientCombatSystem@@QAEXABV?$PStringBase@D@AC1Legacy@@W4DAMAGE_TYPE@@NJJH_J@Z
 56E3B0 ?HandleCombatAction@ClientCombatSystem@@IAE_NABVInputEvent@@@Z
-56E4DB def_56E3DD
-56E4E4 jpt_56E3DD
-56E594 jpt_56E4BB
 56E640 ?OnAction@ClientCombatSystem@@MAE_NABVInputEvent@@@Z
 56E6B0 ?GetTradeSystem@ClientTradeSystem@@SAPAV1@XZ
 56E6C0 ?OnShutdown@ClientTradeSystem@@MAEXXZ
@@ -7100,16 +7066,10 @@
 56EFF0 ?NotifyServerThatTradeIsOutOfSync@ClientTradeSystem@@QAEXXZ
 56F040 ?SpellComponentCategoryFromString@MagicEnumMapper@@SAHQBDAAW4SpellComponentCategory@@@Z
 56F230 ?GetCommunicationSystem@ClientCommunicationSystem@@SAPAV1@XZ
-56F240 ClientCommunicationSystem::OnBeginCharacterSession
-56F270 ClientCommunicationSystem::OnEndCharacterSession
 56F2A0 ?Handle_Communication__Recv_ChatRoomTracker@ClientCommunicationSystem@@QAEKABVChatRoomTracker@@@Z
 56F300 ?Handle_Communication__HearRangedSpeech@ClientCommunicationSystem@@QAEKABV?$PStringBase@D@AC1Legacy@@0KMK@Z
-56F330 ClientCommunicationSystem::IsMessageSpam
 56F380 ?HelpMessageTypes@ClientCommunicationSystem@@IAE_NW4HelpType@1@PBDAAV?$PStringBase@D@@@Z
 56F3A0 ?DoBirth@ClientCommunicationSystem@@IAE_NHPAPAD@Z
-56F3B0 ClientCommunicationSystem::DoClear
-56F3F0 ClientCommunicationSystem::DoChannelIndex
-56F400 ClientCommunicationSystem::EnableChatTalkFocuses
 56F510 ?FindSubStringIter@?$PStringBaseIter_Common@D@@KA_NPBD0@Z
 56F560 ?AddRef@ClientUISystem@@UBEKXZ
 56F570 ?QueryInterface@ClientCommunicationSystem@@UAE?AVTResult@@ABUTurbine_GUID@@PAPAX@Z
@@ -7149,7 +7109,6 @@
 571870 ?Release@ClientCommunicationSystem@@UBEKXZ
 5718A0 ?InqChatPoseCommand@ChatPoseTable@@QAEHABV?$PStringBase@D@AC1Legacy@@AAV23@11@Z
 571960 ?Handle_Communication__ChannelBroadcast@ClientCommunicationSystem@@QAEKKABV?$PStringBase@D@AC1Legacy@@0@Z
-571FA0 ClientCommunicationSystem::Handle_Character__QueryAgeResponse
 572070 ?Handle_Communication__HearSpeech@ClientCommunicationSystem@@QAEKABV?$PStringBase@D@AC1Legacy@@0KK@Z
 572370 ?Handle_Communication__HearDirectSpeech@ClientCommunicationSystem@@QAEKABV?$PStringBase@D@AC1Legacy@@AAV23@KKKK@Z
 572760 ?HandleFailureEvent@ClientCommunicationSystem@@QAEXKABV?$PStringBase@G@@@Z
@@ -7300,16 +7259,8 @@
 5806F0 ?DoHelp@ClientCommunicationSystem@@IAE_NHPAPAD@Z
 580B90 ?Handle_Communication__PopUpString@ClientCommunicationSystem@@QAEKABV?$PStringBase@D@AC1Legacy@@@Z
 580D60 ?DoDie@ClientCommunicationSystem@@IAE_NHPAPAD@Z
-580F50 ClientCommunicationSystem::HouseAbandonDialogCallback_First
-581190 ClientCommunicationSystem::Pose
-581450 ClientCommunicationSystem::MakeLoadFileVariableSubstitutions
 581570 ?Handle_Communication__TextboxString@ClientCommunicationSystem@@QAEKAAV?$PStringBase@D@AC1Legacy@@K@Z
 5816E0 ?DoHouse@ClientCommunicationSystem@@IAE_NHPAPAD@Z
-581E50 ClientCommunicationSystem::RemoveTextBetween
-581F70 ClientCommunicationSystem::PublicChat
-5820C0 ClientCommunicationSystem::DoSay
-5821A0 ClientCommunicationSystem::OnChatCommand
-582590 ClientCommunicationSystem::LoadFile
 5826F0 ?DoLoadFile@ClientCommunicationSystem@@IAE_NHPAPAD@Z
 5827F0 ?InitializeCommands@ClientCommunicationSystem@@IAEXXZ
 5863A0 ??0ClientCommunicationSystem@@QAE@XZ
@@ -7431,8 +7382,6 @@
 58A870 ?GetLastTelleeName@gmCCommunicationSystem@@SA?AV?$PStringBase@D@@XZ
 58A8B0 ?ConvertSQToPString@gmCCommunicationSystem@@KAXABVSquelchInfo@@AAV?$PStringBase@D@AC1Legacy@@H@Z
 58AC60 ?OnSendToRoomByIDResult@uiChatInterfaceProvider@gmCCommunicationSystem@@UAGXJKPBGUtagBLOB@@@Z
-58ACE0 gmCCommunicationSystem::GetListofSquelchChannels
-58AD90 gmCCommunicationSystem::HandleRangedTalkEvent
 58AED0 ?DoGlobalSquelchQuery@gmCCommunicationSystem@@SAHXZ
 58B0F0 ?DoSquelchQuery@gmCCommunicationSystem@@SAHXZ
 58B3C0 ?OnSendToRoom@uiChatInterfaceProvider@gmCCommunicationSystem@@UAGXKPBG0UtagBLOB@@@Z
@@ -7685,7 +7634,6 @@
 591710 ?RemoveFloat@CBaseQualities@@QAEHK@Z
 591740 ?SetFloat@CBaseQualities@@QAEHKN@Z
 591820 ?SetDataID@CBaseQualities@@QAEHKV?$IDClass@U_tagDataID@@$0CA@$0A@@@@Z
-5918F0 CBaseQualities::RemoveInstanceID
 591920 ?SetInstanceID@CBaseQualities@@QAEHKK@Z
 5919F0 ?InqString@CBaseQualities@@QBEHKAAV?$PStringBase@D@AC1Legacy@@@Z
 591A50 ?Pack@?$PackableHashTable@KV?$IDClass@U_tagDataID@@$0CA@$0A@@@@@UAEIAAPAXI@Z
@@ -7895,8 +7843,6 @@
 599490 ??1CSpellTable@@UAE@XZ
 599530 ?Allocate@CSpellTable@@UBEPAVDBObj@@XZ
 599540 ?BuildSpell@Spell@@SAPAV1@W4SpellType@@@Z
-5996B4 def_59954E
-5996B8 jpt_59954E
 599700 ??4Spell@@UAEAAV0@ABV0@@Z
 599710 ??0MetaSpell@@QAE@XZ
 599730 ?InqDuration@MetaSpell@@QBENXZ
@@ -7937,7 +7883,6 @@
 59A0C0 ??4CContractTracker@@QAEAAV0@ABV0@@Z
 59A100 ??0CContractTracker@@QAE@XZ
 59A130 ??0CContractTracker@@QAE@ABV0@@Z
-59A180 CContractTracker::Pack
 59A1E0 ?UnPack@CContractTracker@@UAEHAAPAXI@Z
 59A250 ??0CContractTrackerTable@@QAE@XZ
 59A280 ??1QuestDef@@UAE@XZ
@@ -7949,7 +7894,6 @@
 59A610 ?add@?$PackableHashTable@V?$CaseInsensitiveStringBase@V?$PStringBase@D@AC1Legacy@@@AC1Legacy@@VQuestDef@@@@QAEHABV?$CaseInsensitiveStringBase@V?$PStringBase@D@AC1Legacy@@@AC1Legacy@@ABVQuestDef@@@Z
 59A670 ??0?$PackableHashData@V?$CaseInsensitiveStringBase@V?$PStringBase@D@AC1Legacy@@@AC1Legacy@@VQuestDef@@@@QAE@ABV?$CaseInsensitiveStringBase@V?$PStringBase@D@AC1Legacy@@@AC1Legacy@@ABVQuestDef@@H@Z
 59A6C0 ??0QuestDef@@QAE@ABV0@@Z
-59A700 QuestDef::vector_deleting_destructor
 59A740 ?lookup@?$PackableHashTable@V?$CaseInsensitiveStringBase@V?$PStringBase@D@AC1Legacy@@@AC1Legacy@@VQuestDef@@@@QBEPAVQuestDef@@ABV?$CaseInsensitiveStringBase@V?$PStringBase@D@AC1Legacy@@@AC1Legacy@@@Z
 59A7A0 ??_E?$PackableHashTable@V?$CaseInsensitiveStringBase@V?$PStringBase@D@AC1Legacy@@@AC1Legacy@@VQuestDef@@@@UAEPAXI@Z
 59A7F0 ??1QuestDefDB@@UAE@XZ
@@ -8666,7 +8610,6 @@
 5B84E0 ?STREAMPACK@@YAHW4STREAMTYPE@@AAV?$PStringBase@D@AC1Legacy@@AAPAXAAI@Z
 5B8550 ?Clear@AllegianceHierarchy@@QAEXXZ
 5B8660 ?UnPack@AllegianceHierarchy@@UAEHAAPAXI@Z
-5B8930 AllegianceHierarchy::AllegianceHierarchy
 5B8AD0 ??4AllegianceHierarchy@@QAEAAV0@ABV0@@Z
 5B8C00 ??1AllegianceHierarchy@@UAE@XZ
 5B8CE0 ??_GAllegianceHierarchy@@UAEPAXI@Z
@@ -9578,13 +9521,6 @@
 5DFB12 _VerQueryValueA@16
 5DFB18 _GetFileVersionInfoA@16
 5DFB1E _GetFileVersionInfoSizeA@8
-5DFB24 acmStreamUnprepareHeader
-5DFB2A acmStreamConvert
-5DFB30 acmStreamPrepareHeader
-5DFB36 acmStreamClose
-5DFB3C acmStreamSize
-5DFB42 acmStreamOpen
-5DFB48 DirectSoundCreate
 5DFD12 _D3DXLoadSurfaceFromSurface@32
 5E098C _D3DXVec3Transform@12
 5E11AC _D3DXMatrixMultiply@12
@@ -9603,14 +9539,11 @@
 5E7D33 ??0SVertexCopyContext@D3DXMesh@@QAE@PBU_D3DVERTEXELEMENT9@@0@Z
 5E7F7D ?Resize@?$GXTri3Mesh@G$00$0PPPP@@D3DXMesh@@QAEJII@Z
 5EFB7F ?D3DXDebugMuteInt@@YGHH@Z
-5F40E7 nullsub_1894
-5F4602 nullsub_1895
 5FF8F4 ??0CD3DXCrackDecl@D3DXMesh@@QAE@XZ
 615C60 _ijlInit@4
 6163F0 _ijlFree@4
 616DE0 _ijlRead@8
 617900 _ijlWrite@8
-619270 nullsub_2
 65AEF0 ?ReportGenericError@IError@@YAXPBDZZ
 65AF10 ?ReportDataError@IError@@YAXPBDZZ
 65AF30 ?DefaultAllIErrorCategoriesToProvidedHandler@IError@@YAXPAVILoggingOutputHandler@Logger@@@Z
@@ -9647,7 +9580,6 @@
 660210 ?RegisterContextDataName@CAsyncStateHandler@@IAEKABV?$PStringBase@D@@@Z
 660220 ??0CAsyncStateMachine@@QAE@XZ
 6602A0 ?OnContextBegun@CAsyncStateMachine@@MAEXVAsyncContext@@@Z
-6602B0 nullsub_1896
 6602C0 ??1CAsyncStateMachine@@UAE@XZ
 6605B0 ??1CAsyncStateHandler@@UAE@XZ
 660640 ?CalcChecksum32@PortalChecksum@@YAKPBEK@Z
@@ -9889,7 +9821,6 @@
 683A80 ?LookupExistingCounterByName@PerfMonCounterInfo@@SAPAV1@ABV?$PStringBase@G@@G@Z
 683E60 ??0PerfMonCounterInfo@@QAE@W4EPerfCounterType@0@ABV?$PStringBase@G@@1G@Z
 6844F0 @GetPerfCounterDescriptions@12
-684867 nullsub_3
 684870 _turbineperfmonrpcserverapi_GetPerfCounterDescriptions@4
 684A50 _turbineperfmonrpcserverapi_GetPerfCounterValues@4
 684C30 ?IndexToConstPointer@?$PStringBaseIter@D@AC1Legacy@@MBEPBDK@Z
@@ -10080,9 +10011,7 @@
 694910 ?GetHeight@Graphic@@QBEJXZ
 694930 ?PointTest@Graphic@@QBE_NJJ@Z
 694A00 ??0Graphic@@QAE@ABV0@@Z
-694A40 Graphic::Draw
 694D80 ??0Graphic@@QAE@PAVRenderSurface@@@Z
-694E00 Graphic::Graphic
 695670 ?RecvNotice_PrevSpellSelection@gmNoticeHandler@@UAEXXZ
 6968D0 ?Get2DTextureD3D@RenderTextureD3D@@QAEPAUIDirect3DTexture9@@XZ
 696C50 ?GetDirect3DSurface@RenderSurfaceD3D@@QAEPAUIDirect3DSurface9@@XZ
@@ -10115,7 +10044,6 @@
 6995A0 ?RenderIndexedPrimitives@RenderVertexBufferD3D@@MAE_NW4PrimType@@KKKKKAAVRenderIndexBuffer@@_NPAK32@Z
 699700 ?RenderPrimitives@RenderVertexBufferD3D@@MAE_NW4PrimType@@KKPAK1@Z
 699830 ?Startup@RenderVertexBufferD3D@@UAE_NKK_N0K@Z
-69A3C0 SmartArray_Box2D_1_::AddToEnd
 69A800 ?find@?$HashTable@KVElementDesc@@$0A@@@QBE_NABKAAVElementDesc@@@Z
 69A850 ?AccessElementDesc@LayoutDesc@@QBEPAVElementDesc@@K@Z
 69A890 ??0?$IntrusiveHashTable@KPAV?$HashTableData@KVElementDesc@@@@$0A@@@QAE@I@Z
@@ -10149,7 +10077,6 @@
 69DB30 ?Incorporate@StateDesc@@QAE_NABV1@@Z
 69DBB0 ??4StateDesc@@QAEAAV0@ABV0@@Z
 69DC60 ??0MD_Data_Image@@QAE@XZ
-69DCE0 j_nullsub_12
 69DDA0 ??_GMD_Data_Movie@@UAEPAXI@Z
 69DE10 ??0MD_Data_Movie@@QAE@ABV0@@Z
 69DE50 ?Update@MD_Data_Movie@@QAE_NPAVUIElement@@@Z
@@ -10893,10 +10820,5 @@
 6BD780 ?CreateTheatreForMovie@MovieTheatre@@SA?AVTResult@@ABV?$PStringBase@D@@KPAVUIElement@@AAPAV1@@Z
 6BFE00 fptc
 6C0700 ?AddRef@?$RefCountIUnknown@VuiChatInterfaceProvider@gmCCommunicationSystem@@@@UAGKXZ
-6C39C8 SEH_5577A0
-6C39F6 SEH_557C50
-6C3A08 SEH_557D80
-6C3A20 SEH_557E80
 726B50 ?s_FreeListHelper@?2??GrowExact@GrowBuffer@@QAEXI@Z@$AVFreeListLockAllocator@1@A
-726B60 nullsub_36
 726BB0 ?back_slash@?1???$template_cleanup_filename@D@@YA_NAAV?$PStringBase@D@@_N@Z@$AV0@A

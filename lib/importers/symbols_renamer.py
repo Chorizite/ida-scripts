@@ -16,64 +16,174 @@ def rename_patterned_subroutines(cursor):
 
   # Get total count first for progress
   total_funcs = len(list(idautils.Functions()))
-  processed = 0
-  renamed_init_string_funcs = 0
-  renamed_logging_category_init_funcs = 0
-  renamed_pstring_array_init_funcs = 0
-  renamed_compute_str_hash_funcs = 0
-  renamed_null_exit_funcs = 0
+  renamed_counts = {
+    "init_string": 0,
+    "logging_category_init": 0,
+    "pstring_array_init": 0,
+    "compute_str_hash": 0,
+    "null_exit": 0,
+    "wide_string_init": 0
+  }
 
-  for func_ea in idautils.Functions():
-    processed += 1
-    if processed % (max(math.floor(total_funcs / 100), 100)) == 0:
-      percentage = (processed / total_funcs) * 100
-      ida_kernwin.replace_wait_box(f"Renaming patterned subroutines... {processed}/{total_funcs} ({percentage:.1f}%)")
+  # Helper function to process functions with a specific pattern matcher
+  def process_functions_with_pattern(pattern_name, matcher_func, extra_args=None):
+    processed = 0
+    for func_ea in idautils.Functions():
+      processed += 1
+      if processed % (max(math.floor(total_funcs / 100), 100)) == 0:
+        percentage = (processed / total_funcs) * 100
+        ida_kernwin.replace_wait_box(f"Checking for {pattern_name} functions... {processed}/{total_funcs} ({percentage:.1f}%)")
 
-    # Get the function object
-    func = ida_funcs.get_func(func_ea)
-    if not func:
+      # Get the function object and name
+      func = ida_funcs.get_func(func_ea)
+      if not func:
         continue
         
-    # Get the function name
-    func_name = ida_name.get_name(func_ea)
-    if not func_name:
+      func_name = ida_name.get_name(func_ea)
+      if not func_name:
         continue
+      
+      if not func_name.startswith("nullsub_") and not func_name.startswith("sub_") and not func_name.startswith("$"):
+        continue
+
+      # Call the matcher function with any extra arguments
+      if extra_args:
+        if matcher_func(func_ea, *extra_args):
+          renamed_counts[pattern_name] += 1
+      else:
+        if matcher_func(func_ea):
+          renamed_counts[pattern_name] += 1
+
+  # Process each pattern type separately
+  process_functions_with_pattern("null_exit", _try_match_null_exit_func)
+  process_functions_with_pattern("init_string", _try_match_init_string_func)
+  process_functions_with_pattern("logging_category_init", _try_match_logging_category_init_func)
+  process_functions_with_pattern("compute_str_hash", _try_match_compute_str_hash_func)
+  process_functions_with_pattern("pstring_array_init", _try_match_pstring_array_init_func, [cursor])
+  process_functions_with_pattern("wide_string_init", _try_match_wide_string_init_func, [cursor])
+
+  # Print results
+  print(f"    [+] Renamed {renamed_counts['init_string']:,} string initializer subroutines")
+  print(f"    [+] Renamed {renamed_counts['logging_category_init']:,} logging category initializer subroutines")
+  print(f"    [+] Renamed {renamed_counts['pstring_array_init']:,} PStringBase array initializer subroutines")
+  print(f"    [+] Renamed {renamed_counts['compute_str_hash']:,} compute string hash subroutines")
+  print(f"    [+] Renamed {renamed_counts['null_exit']:,} null exit subroutines")
+  print(f"    [+] Renamed {renamed_counts['wide_string_init']:,} wide string initializer subroutines")
+
+def _try_match_wide_string_init_func(ea, cursor):
+    """Check if the function is a wide string initializer by analyzing its characteristics"""
+
+    """
+.text:00709F10 sub_709F10      proc near               ; DATA XREF: .data:008141F0↓o
+.text:00709F10                 push    offset aYouCanTUseChat_0 ; "You can't use chat emotes in combat mod"...
+.text:00709F15                 call    ds:wcslen
+.text:00709F1B                 add     esp, 4
+.text:00709F1E                 push    eax
+.text:00709F1F                 mov     ecx, offset dword_871704
+.text:00709F24                 call    ?allocate_ref_buffer@?$PStringBase@G@@IAE_NI@Z ; PStringBase<ushort>::allocate_ref_buffer(uint)
+.text:00709F29                 mov     eax, dword_871704
+.text:00709F2E                 push    offset aYouCanTUseChat_0 ; "You can't use chat emotes in combat mod"...
+.text:00709F33                 push    eax             ; Destination
+.text:00709F34                 call    ds:wcscpy
+.text:00709F3A                 push    offset sub_7749B0 ; void (__cdecl *)()
+.text:00709F3F                 call    _atexit
+.text:00709F44                 add     esp, 0Ch
+.text:00709F47                 retn
+.text:00709F47 sub_709F10      endp
+    """
+
+    # quick check to see if the function is a wide string initializer
+    disasm_lines = idahelpers.get_function_disasm_lines(ea)
+    if len(disasm_lines) != 14 or not "call    ds:wcslen" in disasm_lines[1]:
+        return False
+
+    success, matches = idahelpers.is_function_disasm_match(ea, [
+      r"push    offset (?P<string_rdata_name>\S+);?",
+      r"call    ds:wcslen",
+      r"add     esp, 4",
+      r"push    eax",
+      r"mov     ecx, offset (?P<string_data_name>\S+)",
+      r"call    .*allocate_ref_buffer.*PStringBase",
+      r"call    ds:wcscpy",
+      r"push    offset (?P<deref_sub_name>\S+)",
+      r"call    _atexit",
+      r"add     esp, 0Ch",
+      r"retn",
+    ], strict=True, disasm_lines=disasm_lines)
+
+    if not success:
+        return False
     
-    if not func_name.startswith("sub_") and not func_name.startswith("$") and not func_name.startswith("xxgen_"):
-        continue
+    clean_name = re.sub(r'[^a-zA-Z0-9_]', '_', matches['string_rdata_name']).strip("_")
+    dname = matches['string_data_name']
+    rname = matches['string_rdata_name']
+    deref_name = matches['deref_sub_name']
 
-    if _try_match_init_string_func(func_ea):
-        renamed_init_string_funcs += 1
-    elif _try_match_logging_category_init_func(func_ea):
-        renamed_logging_category_init_funcs += 1
-    elif _try_match_compute_str_hash_func(func_ea):
-        renamed_compute_str_hash_funcs += 1
-    elif _try_match_null_exit_func(func_ea):
-        renamed_null_exit_funcs += 1
-    elif _try_match_pstring_array_init_func(func_ea, cursor):
-        renamed_pstring_array_init_funcs += 1
+    if not idahelpers.is_named_data_symbol(dname):
+        dword_ea = _get_address_from_name(dname)
+        _rename_data_entry(dword_ea, rname, "ID")
 
-  print(f"    [+] Renamed {renamed_init_string_funcs:,} string initializer subroutines")
-  print(f"    [+] Renamed {renamed_logging_category_init_funcs:,} logging category initializer subroutines")
-  print(f"    [+] Renamed {renamed_pstring_array_init_funcs:,} PStringBase array initializer subroutines")
-  print(f"    [+] Renamed {renamed_compute_str_hash_funcs:,} compute string hash subroutines")
-  print(f"    [+] Renamed {renamed_null_exit_funcs:,} null exit subroutines")
+    idahelpers.name_until_free_index(ea, f"xxgen__InitWideString__{clean_name}")
+
+    return True
+
+
+
 
 def _try_match_null_exit_func(ea):
     """Check if the function is a null exit function by analyzing its characteristics"""
 
     """
-.text:006C3A80 $E10            proc near               ; DATA XREF: .data:0080B058↓o
-.text:006C3A80                 mov     eax, dword_83742C
-.text:006C3A85                 inc     eax
-.text:006C3A86                 push    offset xxgen__nullsub_00725CC0 ; void (__cdecl *)()
-.text:006C3A8B                 mov     word ptr dword_837420, ax
-.text:006C3A91                 call    _atexit
-.text:006C3A96                 pop     ecx
-.text:006C3A97                 retn
-.text:006C3A97 $E10            endp
+.text:00715E80 sub_715E80      proc near               ; DATA XREF: .data:00815B84↓o
+.text:00715E80                 push    offset xxgen__nullsub_0077FFE0 ; void (__cdecl *)()
+.text:00715E85                 call    _atexit
+.text:00715E8A                 pop     ecx
+.text:00715E8B                 retn
+.text:00715E8B sub_715E80      endp
+
+.text:00715E90 sub_715E90      proc near               ; DATA XREF: .data:00815B88↓o
+.text:00715E90                 push    offset xxgen__nullsub_0077FFF0 ; void (__cdecl *)()
+.text:00715E95                 call    _atexit
+.text:00715E9A                 pop     ecx
+.text:00715E9B                 retn
+.text:00715E9B sub_715E90      endp
+
+.text:006F3340 xxgen__exit_nullsub_392 proc near       ; DATA XREF: .data:0081107C↓o
+.text:006F3340                 push    offset xxgen__nullsub_00762200 ; void (__cdecl *)()
+.text:006F3345                 call    _atexit
+.text:006F334A                 pop     ecx
+.text:006F334B                 retn
+.text:006F334B xxgen__exit_nullsub_392 endp
+
     """
-    return False
+    disasm_lines = idahelpers.get_function_disasm_lines(ea)
+
+    if ea == 0x0070ACC0:
+        print(f"here: {disasm_lines}")
+
+    if len(disasm_lines) != 4:
+        return False
+
+    success, matches = idahelpers.is_function_disasm_match(ea, [
+        r"push    offset .*null",
+        r"call    _atexit",
+        r"pop     ecx",
+        r"retn",
+    ], strict=True, disasm_lines=disasm_lines)
+
+
+    if ea == 0x0070ACC0:
+        print(success, matches)
+
+    if not success:
+        return False
+
+    res = idahelpers.name_until_free_index(ea, f"xxgen__Exit_nullsub")
+    if ea == 0x0070ACC0:
+        print(f"res: {res}")
+
+
+    return True
 
 
 def _try_match_compute_str_hash_func(ea):
@@ -100,7 +210,7 @@ def _try_match_compute_str_hash_func(ea):
         r"add     esp, 4",
         r"mov     (?P<hash_data_name>[^,]+), eax",
         r"retn",
-    ], strict=True)
+    ], strict=True, disasm_lines=disasm_lines)
 
     if not success:
         return False
@@ -115,7 +225,7 @@ def _try_match_compute_str_hash_func(ea):
             print(f"    [+] Failed to create dword at {buffer_offset}")
             return False
         _rename_data_entry(int(buffer_offset, 16), rname, "ID")
-        return False
+
     elif not idahelpers.is_named_data_symbol(dname):
         dword_ea = _get_address_from_name(dname)
         _rename_data_entry(dword_ea, rname, "ID")
@@ -153,7 +263,7 @@ def _try_match_init_string_func(ea):
         r"call    _atexit",
         r"pop     ecx",
         r"retn",
-    ], strict=True)
+    ], strict=True, disasm_lines=disasm_lines)
     
     if not success:
         return False
@@ -206,7 +316,7 @@ def _try_match_logging_category_init_func(ea):
         r"add     esp, 4",
         r"mov     (?P<string_data_name>\S+), eax",
         r"retn",
-    ], strict=True)
+    ], strict=True, disasm_lines=disasm_lines)
 
     if not success:
         return False
@@ -220,6 +330,8 @@ def _try_match_logging_category_init_func(ea):
         dword_ea = _get_address_from_name(dname)
         _rename_data_entry(dword_ea, rname, "LC")
     idahelpers.name_until_free_index(ea, f"xxgen__InitLogCategory__{clean_name}")
+
+    return True
 
 def _try_match_pstring_array_init_func(ea, cursor):
     """Check if the function is a PStringBase array initialization function by analyzing its characteristics.
@@ -339,7 +451,8 @@ def _try_match_pstring_array_init_func(ea, cursor):
             cleanup_ea = _get_address_from_name(cleanup_func)
             if cleanup_ea:
                 idahelpers.name_until_free_index(cleanup_ea, f"xxgen__Exit_DerefPStringArray__{clean_name}")
-    
+    else:
+        return False
     return True
 
 def _get_address_from_name(name):

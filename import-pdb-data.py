@@ -93,6 +93,9 @@ def main():
     # Import data symbols
     data_symbols_importer.load_and_compare_symbols(cursor)
 
+    # try to match subroutine xrefs
+    symbols_importer.try_match_subroutine_xrefs(cursor)
+
     # import method stackframes
     method_stackframe_importer.import_method_stackframes(cursor)
 

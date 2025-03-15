@@ -10,6 +10,12 @@ import ida_struct
 import ida_bytes
 import ida_frame
 
+# Cache for storing disassembly lines
+_disasm_cache = {}
+
+# Cache for storing last used index for each base name
+_name_index_cache = {}
+
 def get_xref_type(xref):
     """Get the type of a cross-reference."""
     if xref.type == idaapi.fl_CF or xref.type == idaapi.fl_CN:
@@ -416,19 +422,36 @@ def get_function_stack_return_offset(func_addr):
     return -1
 
 def get_function_disasm_lines(ea):
+    """
+    Get disassembly lines for a function with caching.
+    
+    Args:
+        ea: Function address
+        
+    Returns:
+        List of disassembly lines for the function
+    """
+    # Check if result is in cache
+    if ea in _disasm_cache:
+        return _disasm_cache[ea]
+        
     disasm_lines = []
     func = idaapi.get_func(ea)
     if not func:
         return []
+        
     curr_ea = func.start_ea
     while curr_ea < func.end_ea:
         line = idc.GetDisasm(curr_ea)
         if line:
             disasm_lines.append(line)
         curr_ea = idc.next_head(curr_ea)
+    
+    # Cache the result
+    _disasm_cache[ea] = disasm_lines
     return disasm_lines
 
-def is_function_disasm_match(ea, patterns, strict=True):
+def is_function_disasm_match(ea, patterns, strict=True, disasm_lines=None):
     """
     Check if a function's disassembly matches a list of regex patterns.
     
@@ -437,6 +460,7 @@ def is_function_disasm_match(ea, patterns, strict=True):
         patterns: List of regex patterns to match against each line of disassembly
         strict: If True, requires exact number of lines to match patterns
                If False, allows additional lines between matches
+        disasm_lines: Optional pre-cached disassembly lines. If not provided, will fetch them.
     
     Returns:
         (success, matches) tuple where:
@@ -448,7 +472,8 @@ def is_function_disasm_match(ea, patterns, strict=True):
         return False, {}
         
     # Get function disassembly
-    disasm_lines = get_function_disasm_lines(ea)
+    if disasm_lines is None:
+        disasm_lines = get_function_disasm_lines(ea)
         
     matches = {}
     pattern_idx = 0
@@ -547,10 +572,16 @@ def name_until_free_index(ea, name):
   else:
     new_name = name
 
-  idx = 1
+  # Check cache for the last used index for this base name
+  if name in _name_index_cache:
+    idx = _name_index_cache[name]
+  else:
+    idx = 1
+
   while not ida_name.set_name(ea, new_name, ida_name.SN_NOWARN):
     new_name = f"{name}_{idx}"
     idx += 1
-    if idx > 1000:  # Prevent infinite loop
-      break
+
+  # Update cache with the successful index
+  _name_index_cache[name] = idx
   return new_name.split("_")[-1] 
