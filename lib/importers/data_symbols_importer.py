@@ -24,8 +24,12 @@ def build_current_symbols_map(section_start, section_end, section_name):
     xref_cache = defaultdict(list)
     
     # Pre-cache all xrefs in the section range for faster lookup
-    ida_kernwin.replace_wait_box("Pre-caching xrefs...")
+    total_heads = len(list(idautils.Heads(section_start, section_end)))
+    processed_heads = 0
     for head in idautils.Heads(section_start, section_end):
+        processed_heads += 1
+        percentage = (processed_heads / total_heads) * 100
+        idahelpers.update_wait_box(f"Building {section_name} symbol map: ({processed_heads}/{total_heads}) - {percentage:.1f}%")
         for xref in idautils.XrefsTo(head):
             xref_cache[head].append(xref)
     
@@ -41,7 +45,7 @@ def build_current_symbols_map(section_start, section_end, section_name):
         batch = heads[batch_start:batch_end]
         
         progress = (batch_start / total_heads) * 100
-        ida_kernwin.replace_wait_box(f"Building {section_name} symbol map: {batch_start}/{total_heads} ({progress:.1f}%)")
+        idahelpers.update_wait_box(f"Building {section_name} symbol map: ({batch_start}/{total_heads}) - {progress:.1f}%")
         
         for head in batch:
             name = idc.get_name(head)
@@ -130,7 +134,7 @@ def process_section(section_name, cursor):
         batch = db_items[batch_start:batch_end]
         
         progress = (batch_start / len(db_items)) * 100
-        ida_kernwin.replace_wait_box(f"Processing {section_name} symbols: {batch_start}/{len(db_items)} ({progress:.1f}%)")
+        idahelpers.update_wait_box(f"Processing {section_name} symbols: ({batch_start}/{len(db_items)}) - {progress:.1f}%")
         
         for symbol_id, symbol_data in batch:
             xrefs = symbol_data["xrefs"]

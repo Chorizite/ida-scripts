@@ -155,7 +155,7 @@ def import_method_stackframes(cursor):
     """Update function arguments using data from the SQLite database."""
     global count_args, count_funcs, count_args_failed
     
-    ida_kernwin.replace_wait_box("Importing method stack frames...")
+    idahelpers.update_wait_box("Importing method stack frames...")
 
     # Get count of total functions first
     cursor.execute("SELECT COUNT(DISTINCT function_address) FROM method_stackframes")
@@ -187,9 +187,8 @@ def import_method_stackframes(cursor):
             create_func_args_from_type(current_func, current_frame_info, current_members)
             current_members = []
             processed += 1
-            if processed % (max(math.floor(total_funcs / 100), 100)) == 0:
-                percentage = (processed / total_funcs) * 100
-                ida_kernwin.replace_wait_box(f"Importing method stack frames... {processed}/{total_funcs} ({percentage:.1f}%)")
+            percentage = (processed / total_funcs) * 100
+            idahelpers.update_wait_box(f"Importing method stack frames... ({processed}/{total_funcs}) - {percentage:.1f}%")
         
         # Update current function info
         if current_func != func_addr:

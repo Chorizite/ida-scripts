@@ -9,12 +9,83 @@ import ida_name
 import ida_struct
 import ida_bytes
 import ida_frame
+import time
+import ida_kernwin
+import ida_idaapi
 
 # Cache for storing disassembly lines
 _disasm_cache = {}
 
 # Cache for storing last used index for each base name
 _name_index_cache = {}
+
+
+_invalid_db_name_prefixes = ["word_", "dword_", "qword_", "xmmword_", "off_", "asc_", "unk_", "stru_", "$", "sub_"]
+
+def is_invalid_db_name(name):
+    for prefix in _invalid_db_name_prefixes:
+        if name.startswith(prefix):
+            return True
+    return False
+
+def set_name_and_type(ea, name, type, type_size, reason, force=False):
+    if ea == idc.BADADDR:
+        return -1, f"BADADDR: {reason}"
+    
+    existing_name = idc.get_name(ea)
+
+    if not force:
+        if is_named_data_symbol(existing_name):
+            return 0, f"Already named: {reason}"
+    
+    # Create data symbol if one doesn't exist
+    if not idc.is_data(idc.get_full_flags(ea)):
+        # if the previous item is a data item, and it overlaps, resize it
+        prev_item = idc.prev_head(ea)
+        if prev_item and idc.is_data(idc.get_full_flags(prev_item)):
+            prev_size = idc.get_item_size(prev_item)
+            if ea - prev_item <= prev_size:
+                ida_bytes.del_items(prev_item, 0, ea - prev_item)
+
+
+        # Create data item with appropriate flags
+        if type:
+            tif = create_tinfo_from_string(type, type_size)
+            flags = get_flags_from_arg_tinfo(tif, type_size)
+            idc.create_data(ea, flags, type_size, idaapi.BADNODE)
+
+    existing_is_indexed = existing_name.split("_")[-1].isdigit()
+    name_is_indexed = name.split("_")[-1].isdigit()
+
+    existing_is_indexed = existing_is_indexed and not is_invalid_db_name(existing_name.split("_")[0])
+    name_is_indexed = name_is_indexed and not is_invalid_db_name(name.split("_")[0])
+
+    if existing_is_indexed and name_is_indexed and existing_name.split("_")[0] == name.split("_")[0]:
+        return 0, f"Already named: {reason}"
+    
+    if existing_is_indexed and not name_is_indexed and existing_name.split("_")[0] == name:
+        return 0, f"Already named: {reason}"
+    
+    if not existing_is_indexed and name_is_indexed and existing_name == name.split("_")[0]:
+        return 0, f"Already named: {reason}"
+        
+    name_res = idc.set_name(ea, name, idc.SN_NOWARN | ida_name.SN_FORCE | ida_name.SN_NOCHECK) and 1 or -1
+
+    if name_res == 1 and type != None:
+        try:
+            type = type.replace("_DWORD (__stdcall *[", "int (__stdcall void *[")
+            tif = create_tinfo_from_string(type, type_size)
+            ida_typeinf.apply_tinfo(ea, tif, ida_typeinf.TINFO_DEFINITE)
+        except Exception as e:
+            print(f"        [-] Failed to apply type {type} for {name} @ 0x{ea:X}")
+            print(f"        [-] Error: {e}")
+
+    if name_res == 1:
+        with open("name_res.txt", "a") as f:
+            f.write(f"{name} @ 0x{ea:X} got renamed because {reason}\n")
+        return 1, "OK"
+    else:
+        return -1, f"Failed to set name {existing_is_indexed} {name_is_indexed}"
 
 def get_xref_type(xref):
     """Get the type of a cross-reference."""
@@ -250,6 +321,33 @@ def create_tinfo_from_string(type_str, size):
     """
     type_str = str(type_str).strip()
     original_type_str = type_str  # Keep original for IDA parsing attempts
+
+    
+    
+    # Basic types dictionary
+    basic_types = {
+        "int": ida_typeinf.BTF_INT,
+        "unsigned int": ida_typeinf.BTF_UINT,
+        "char": ida_typeinf.BTF_CHAR,
+        "unsigned char": ida_typeinf.BTF_UCHAR,
+        "short": ida_typeinf.BTF_INT16,
+        "unsigned short": ida_typeinf.BTF_UINT16,
+        "long": ida_typeinf.BTF_INT32,
+        "unsigned long": ida_typeinf.BTF_UINT32,
+        "long long": ida_typeinf.BTF_INT64,
+        "unsigned long long": ida_typeinf.BTF_UINT64,
+        "float": ida_typeinf.BTF_FLOAT,
+        "double": ida_typeinf.BTF_DOUBLE,
+        "bool": ida_typeinf.BTF_BOOL,
+        "void": ida_typeinf.BTF_VOID,
+        "__int16": ida_typeinf.BTF_INT16,
+        "__int32": ida_typeinf.BTF_INT32
+    }
+
+    if type_str.lower() in basic_types:
+        tif = ida_typeinf.tinfo_t()
+        tif.create_simple_type(basic_types[type_str.lower()])
+        return tif
     
     # Check if this is already an array pattern like "type[size]"
     array_match = re.match(r'^(.*?)(\[\d+\])$', type_str)
@@ -277,26 +375,6 @@ def create_tinfo_from_string(type_str, size):
     for k in bad_keywords:
         if type_str.startswith(k + " "):
             type_str = type_str.replace(k + " ", "")
-    
-    # Basic types dictionary
-    basic_types = {
-        "int": ida_typeinf.BT_INT,
-        "unsigned int": ida_typeinf.BTF_UINT,
-        "char": ida_typeinf.BTF_CHAR,
-        "unsigned char": ida_typeinf.BTF_UCHAR,
-        "short": ida_typeinf.BT_INT16,
-        "unsigned short": ida_typeinf.BTF_UINT16,
-        "long": ida_typeinf.BT_INT32,
-        "unsigned long": ida_typeinf.BTF_UINT32,
-        "long long": ida_typeinf.BT_INT64,
-        "unsigned long long": ida_typeinf.BTF_UINT64,
-        "float": ida_typeinf.BT_FLOAT,
-        "double": ida_typeinf.BTF_DOUBLE,
-        "bool": ida_typeinf.BT_BOOL,
-        "void": ida_typeinf.BT_VOID,
-        "__int16": ida_typeinf.BT_INT16,
-        "__int32": ida_typeinf.BT_INT32
-    }
     
     # Detect array types (e.g., "char[260]" or "enum CharCase[50]")
     if "[" in type_str and "]" in type_str:
@@ -339,8 +417,8 @@ def create_tinfo_from_string(type_str, size):
     tif = ida_typeinf.tinfo_t()
     
     # First check if it's a basic type
-    if type_str in basic_types:
-        tif.create_simple_type(basic_types[type_str])
+    if type_str.lower() in basic_types:
+        tif.create_simple_type(basic_types[type_str.lower()])
         return tif
     
     # Then check for pointers
@@ -584,4 +662,117 @@ def name_until_free_index(ea, name):
 
   # Update cache with the successful index
   _name_index_cache[name] = idx
-  return new_name.split("_")[-1] 
+  return new_name.split("_")[-1]
+
+def get_data_value(ea):
+    """
+    Get the string value of a data symbol at the given address.
+    
+    Args:
+        ea: Address of the data symbol
+    """
+
+    
+    size = idc.get_item_size(ea)
+    type_name = get_symbol_type_from_addr(ea)
+
+    if type_name.endswith("*") or type_name.endswith("[]"):
+        return None
+    if type_name == "char":
+        return idc.get_wide_byte(ea) != 0
+    if type_name == "int":
+        return idc.get_wide_word(ea)
+    elif type_name == "float":
+        return idc.GetFloat(ea)
+    elif type_name == "double":
+        return idc.GetDouble(ea)
+
+    is_char_array = re.match(r"w?char(_t)?\[(\d+)\]", type_name)
+    is_pstring = re.match(r"PStringBase<(\w+)>", type_name)
+
+    if is_pstring or is_char_array:
+        try:
+            t = idc.get_str_type(ea)
+            if t == None:
+                return None
+            rdata_value = str(idc.get_strlit_contents(ea, -1, t))
+        except:
+            print(f"    [-] Error: Failed to get string value for {type_name} ({t}) at 0x{ea:08X}")
+            return None
+
+        if rdata_value.startswith("b\"") or rdata_value.startswith("b'"):
+            rdata_value = rdata_value[2:-1]
+            if rdata_value.endswith("\"") or rdata_value.endswith("'"):
+                rdata_value = rdata_value[:-1]
+        return rdata_value
+
+_last_update = 0
+def update_wait_box(text):
+    """
+    Update the wait box with the given text.
+    """
+    global _last_update
+    if time.time() - _last_update > 0.1:
+        ida_kernwin.replace_wait_box(text)
+        _last_update = time.time()
+
+
+def get_struct_member_offset(t_info, member_name):
+    """
+    Check if t_info represents a struct and if so, get the offset of the named member
+    
+    Args:
+        t_info: Type info object from IDA (tinfo_t)
+        member_name: Name of the struct member to find
+        
+    Returns:
+        Offset of the member if found, None otherwise
+    """
+    if not t_info.is_struct():
+        return None
+        
+    # Get the struct ID
+    struct_id = ida_struct.get_struc_id(t_info.get_type_name())
+    if struct_id == ida_idaapi.BADADDR:
+        return None
+        
+    # Get the struct object
+    struct = ida_struct.get_struc(struct_id)
+    if not struct:
+        return None
+        
+    # Get the member by name
+    member = ida_struct.get_member_by_name(struct, member_name)
+    if not member:
+        return None
+        
+    return member.soff
+
+def get_local_types():
+    """
+    Get all local types defined in the IDB.
+    
+    Returns:
+        A list of tuples containing (type_name, type_info) for each local type.
+    """
+    local_types = []
+    til = ida_typeinf.get_idati()  # Get type info library
+    
+    # Get count of local types
+    ordinal = 1  # Local types start at ordinal 1
+    max_ordinal = ida_typeinf.get_ordinal_qty(til)
+    
+    # Iterate through all ordinals
+    while ordinal <= max_ordinal:
+        # Get type name for current ordinal
+        type_name = ida_typeinf.get_numbered_type_name(til, ordinal)
+        
+        if type_name:
+            # Get type info
+            tinfo = ida_typeinf.tinfo_t()
+            if ida_typeinf.get_numbered_type(til, ordinal, tinfo):
+                local_types.append((type_name, tinfo.local))
+        
+        ordinal += 1
+        
+    return local_types

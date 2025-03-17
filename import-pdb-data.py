@@ -15,15 +15,23 @@ import idautils
 import idc
 import ida_name
 import importlib
+
 import lib.importers.symbols_importer as symbols_importer
 import lib.importers.data_symbols_importer as data_symbols_importer
 import lib.importers.method_stackframe_importer as method_stackframe_importer
 import lib.importers.symbols_renamer as symbols_renamer
+import lib.importers.method_innards_importer as method_innards_importer
+import lib.importers.vtable_importer as vtable_importer
+import lib.idahelpers as idahelpers
 
 importlib.reload(symbols_importer)
 importlib.reload(data_symbols_importer)
 importlib.reload(method_stackframe_importer)
 importlib.reload(symbols_renamer)
+importlib.reload(method_innards_importer)
+importlib.reload(vtable_importer)
+importlib.reload(idahelpers)
+
 
 def get_file_path(relative_path):
     """Returns the absolute path of a file relative to the script's directory."""
@@ -51,14 +59,12 @@ def print_stats(cursor):
     print(f"  [+] Unnamed subroutines count: {unnamed_count}")
 
 def patch_buffer_symbols():
-    # get named item "Buffer" from ida .data section
-    buffer_ea = idc.get_name_ea_simple("Buffer")
-    if buffer_ea == idc.BADADDR:
-        print("[-] Error: Buffer symbol not found")
-        return
+    _patch_buffer_offset(0x0083FF90)
+    _patch_buffer_offset(0x008F1B60)
+    _patch_buffer_offset(0x008F1760)
+    _patch_buffer_offset(0x008388D0)
 
-    print(f"  [+] Buffer symbol found at {buffer_ea:08X}")
-
+def _patch_buffer_offset(buffer_ea):
     # convert the buffer int a bunch of dwords
     buffer_size = idc.get_item_size(buffer_ea)
     for i in range(buffer_size // 4):
@@ -68,6 +74,7 @@ def patch_buffer_symbols():
 
 def main():
     global db_path
+
     print("[+] Importing pdb client data")
     print(f"  [+] db_path: {db_path}")
 
@@ -80,35 +87,53 @@ def main():
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
+    """
     # import types
     print(f"  [+] Importing types from {types_file}")
+    idahelpers.update_wait_box(f"Importing types from {types_file}")
     idaapi.exec_idc_script(None, types_file, "main", None, 0)
 
     # order is important here:
     patch_buffer_symbols()
 
+    # rename start to _WinMainCRTStartup
+    idc.set_name(0x005DF16A, "_WinMainCRTStartup", idc.SN_NOWARN)
+
     # Import subroutine symbols
     symbols_importer.import_subroutines(cursor)
 
-    # Import data symbols
-    data_symbols_importer.load_and_compare_symbols(cursor)
-
     # try to match subroutine xrefs
-    symbols_importer.try_match_subroutine_xrefs(cursor)
+    #symbols_importer.try_match_subroutine_xrefs(cursor)
+
+    # Import data symbols
+    #data_symbols_importer.load_and_compare_symbols(cursor)
+
+    # import method innards
+    method_innards_importer.import_method_innards(cursor)
+
+    # import method innards
+    method_innards_importer.import_method_innards(cursor)
 
     # import method stackframes
-    method_stackframe_importer.import_method_stackframes(cursor)
-
-    # rename patterned subroutines
-    symbols_renamer.rename_patterned_subroutines(cursor)
+    # method_stackframe_importer.import_method_stackframes(cursor)
 
     # rename unnamed subroutines
     symbols_importer.rename_unnamed_subroutines(cursor)
 
+    # rename patterned subroutines
+    symbols_renamer.rename_patterned_subroutines(cursor)
+
+    # import vtables
+    vtable_importer.import_vtables(cursor)
+
+    """
+    # rename unnamed subroutines
+    symbols_importer.retype_functions(cursor)
+
     # hide wait box
     ida_kernwin.hide_wait_box()
 
-    print_stats(cursor)
+    #print_stats(cursor)
 
     # Commit changes and close connection
     conn.commit()
@@ -116,4 +141,12 @@ def main():
     print("  [+] Finished importing data!")
 
 if __name__ == "__main__":
-    main() 
+    try:
+        main()
+    except Exception as e:
+        print(f"  [-] Error: {e}")
+        ida_kernwin.hide_wait_box()
+        # print stack trace
+        import traceback
+        traceback.print_exc()
+    ida_kernwin.hide_wait_box()

@@ -25,17 +25,22 @@ def import_subroutines(cursor):
   
   for symbol, address in symbols:
     processed += 1
-    if processed % (max(math.floor(total_symbols / 100), 100)) == 0:
-      percentage = (processed / total_symbols) * 100
-      ida_kernwin.replace_wait_box(f"Importing subroutine symbols... {processed}/{total_symbols} ({percentage:.1f}%)")
+    percentage = (processed / total_symbols) * 100
+    idahelpers.update_wait_box(f"Importing subroutine symbols... ({processed}/{total_symbols}) - {percentage:.1f}%")
       
     # Convert address to integer if it's not already
     addr_int = int(address) if not isinstance(address, int) else address
 
     # Only import subroutines that are not already named
     if idc.get_name(addr_int).startswith("sub_"):
-      idc.set_name(addr_int, symbol, idc.SN_NOWARN)
-      imported_symbols += 1
+      if symbol.startswith("$"):
+        continue
+      reason = f"symbols_importer: found unmapped operand {symbol} -> {symbol}"
+      set_name_res, error = idahelpers.set_name_and_type(addr_int, symbol, None, None, reason, True)
+      if set_name_res == 1:
+        imported_symbols += 1
+      elif set_name_res == -1:
+        print(f"        [-] Failed to import {symbol} @ 0x{addr_int:X} because {error}")
 
   print(f"    [+] Imported {imported_symbols:,} of {total_symbols:,} subroutine symbols")
 
@@ -50,8 +55,12 @@ def try_match_subroutine_xrefs(cursor):
   xref_cache = defaultdict(list)
   
   # Pre-cache all xrefs for faster lookup
-  ida_kernwin.replace_wait_box("Pre-caching xrefs...")
+  total_funcs = len(list(idautils.Functions()))
+  processed_funcs = 0
   for func_ea in idautils.Functions():
+    processed_funcs += 1
+    percentage = (processed_funcs / total_funcs) * 100
+    idahelpers.update_wait_box(f"Pre-caching xrefs... ({processed_funcs}/{total_funcs}) - {percentage:.1f}%")
     for xref in idautils.XrefsTo(func_ea):
       xref_cache[func_ea].append(xref)
   
@@ -62,9 +71,8 @@ def try_match_subroutine_xrefs(cursor):
   # Build map of current subroutines and their xrefs
   for func_ea in idautils.Functions():
     processed += 1
-    if processed % (max(math.floor(total_funcs / 100), 100)) == 0:
-      percentage = (processed / total_funcs) * 100
-      ida_kernwin.replace_wait_box(f"Building subroutine map: {processed}/{total_funcs} ({percentage:.1f}%)")
+    percentage = (processed / total_funcs) * 100
+    idahelpers.update_wait_box(f"Building subroutine map: ({processed}/{total_funcs}) - {percentage:.1f}%")
     
     name = idc.get_name(func_ea)
     if name and name.startswith("sub_"):  # Only process unnamed subroutines
@@ -122,9 +130,8 @@ def try_match_subroutine_xrefs(cursor):
   
   for symbol_id, symbol_data in db_symbols.items():
     processed += 1
-    if processed % (max(math.floor(total_symbols / 100), 100)) == 0:
-      percentage = (processed / total_symbols) * 100
-      ida_kernwin.replace_wait_box(f"Matching subroutines by xrefs: {processed}/{total_symbols} ({percentage:.1f}%)")
+    percentage = (processed / total_symbols) * 100
+    idahelpers.update_wait_box(f"Matching subroutines by xrefs: ({processed}/{total_symbols}) - {percentage:.1f}%")
     
     xrefs = symbol_data["xrefs"]
     if not xrefs:
@@ -135,8 +142,12 @@ def try_match_subroutine_xrefs(cursor):
       curr_addr, curr_name = current_subroutines_by_xrefs[xrefs]
       if curr_name.startswith("sub_"):  # Only rename if still unnamed
         symbol_name = symbol_data["name"]
-        idc.set_name(curr_addr, symbol_name, idc.SN_NOWARN)
-        renamed_count += 1
+        reason = f"try_match_subroutine_xrefs: found unmapped operand {curr_name} -> {symbol_name}"
+        set_name_res, error = idahelpers.set_name_and_type(curr_addr, symbol_name, None, None, reason, False)
+        if set_name_res == 1:
+          renamed_count += 1
+        elif set_name_res == -1:
+          print(f"        [-] Failed to rename {curr_name} to {symbol_name} @ 0x{curr_addr:X} because {error}")
   
   print(f"    [+] Renamed {renamed_count:,} subroutines based on xref patterns")
   return renamed_count
@@ -154,9 +165,8 @@ def rename_unnamed_subroutines(cursor):
   
   for func_ea in idautils.Functions():
     processed += 1
-    if processed % (max(math.floor(total_funcs / 100), 100)) == 0:
-      percentage = (processed / total_funcs) * 100
-      ida_kernwin.replace_wait_box(f"Renaming unnamed subroutines... {processed}/{total_funcs} ({percentage:.1f}%)")
+    percentage = (processed / total_funcs) * 100
+    idahelpers.update_wait_box(f"Renaming unnamed subroutines... ({processed}/{total_funcs}) - {percentage:.1f}%")
     
     # Get the function object
     func = ida_funcs.get_func(func_ea)
@@ -177,3 +187,48 @@ def rename_unnamed_subroutines(cursor):
 
   print(f"    [+] Updated {sub_count:,} matched subroutines with new offsets")
   print(f"    [+] Renamed {nullsub_count:,} nullsubroutines")
+
+def retype_functions(cursor):
+  """Grab all functions from the database and retype them if they exist in the IDB"""
+
+  print("  [+] Retyping functions")
+
+  cursor.execute('SELECT id, name, type FROM symbols WHERE section = ?', ('.text',))
+  
+  # Fetch all function symbols
+  symbols = cursor.fetchall()
+  total_symbols = len(symbols)
+  processed = 0
+  retyped_count = 0
+  
+  for symbol_id, name, type_str in symbols:
+    processed += 1
+    percentage = (processed / total_symbols) * 100
+    idahelpers.update_wait_box(f"Retyping functions... ({processed}/{total_symbols}) - {percentage:.1f}%")
+    
+    # Skip if no type information
+    if not type_str:
+      continue
+    
+    # Find the function in the IDB
+    ea = idc.get_name_ea_simple(name)
+    if ea == idc.BADADDR:
+      continue
+    
+    # Check if it's a function
+    func = ida_funcs.get_func(ea)
+    if not func:
+      continue
+
+    # Create type info and apply it
+    try:
+      if idc.SetType(ea, type_str):
+        retyped_count += 1
+      else:
+        print(f"        [-] Failed to create type {type_str} for {name} @ 0x{ea:X}")
+    except Exception as e:
+      print(f"        [-] Exception during apply type {type_str} for {name} @ 0x{ea:X}")
+      print(f"        [-] Error: {e}")
+  
+  print(f"    [+] Retyped {retyped_count:,} of {total_symbols:,} functions")
+  return retyped_count

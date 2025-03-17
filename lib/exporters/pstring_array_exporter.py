@@ -23,7 +23,6 @@ def _find_pstring_array_init_functions():
     # Calculate total addresses to scan for progress reporting
     total_addrs = data_seg.end_ea - data_seg.start_ea
     processed = 0
-    last_progress = 0
     
     # Iterate through .data segment looking for PStringBase arrays
     ea = data_seg.start_ea
@@ -31,9 +30,7 @@ def _find_pstring_array_init_functions():
         # Update progress every 1%
         processed = ea - data_seg.start_ea
         progress = (processed / total_addrs) * 100
-        if progress - last_progress >= 1:
-            ida_kernwin.replace_wait_box(f"Scanning .data for string arrays... {progress:.1f}%")
-            last_progress = progress
+        idahelpers.update_wait_box(f"Scanning .data for string arrays... {progress:.1f}%")
             
         # Check if we have a name at this address that looks like a PStringBase array
         name = ida_name.get_name(ea)
@@ -69,9 +66,8 @@ def dump_pstring_arrays(cursor):
     member_count = 0
     
     for i, (func_ea, array_name, cleanup_func, members) in enumerate(init_funcs):
-        if i % (max(math.floor(total_funcs / 100), 100)) == 0:
-            progress = (i / total_funcs) * 100
-            ida_kernwin.replace_wait_box(f"Processing PStringBase arrays... {i}/{total_funcs} ({progress:.1f}%)")
+        progress = (i / total_funcs) * 100
+        idahelpers.update_wait_box(f"Processing PStringBase arrays... ({i}/{total_funcs}) - {progress:.1f}%")
             
         # Get array information
         if not array_name:
@@ -102,8 +98,7 @@ def dump_pstring_arrays(cursor):
 
             # get the value of the member
             member_ea = idc.get_name_ea_simple(member_name)
-            member_value = idc.get_strlit_contents(member_ea, -1, idc.STRTYPE_C)
-            print(f"    [+] Member {member_name} at {member_ea:08X} has value {member_value}")
+            member_value = idahelpers.get_data_value(member_ea)
                 
             # Insert member info into database
             cursor.execute('''

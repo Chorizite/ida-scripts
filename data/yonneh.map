@@ -9,6 +9,10 @@
 424620 ?Copy@InstanceIDPropertyValue@@UBEPAVBasePropertyValue@@XZ
 4248D0 ?Copy@IntegerPropertyValue@@UBEPAVBasePropertyValue@@XZ
 425240 ?Copy@TriStatePropertyValue@@UBEPAVBasePropertyValue@@XZ
+406D60 ??0SmartBuffer@@QAE@XZ
+
+
+
 
 # yonneh:
 401000 ??_H@YGXPAXIHP6EPAX0@Z@Z
@@ -6471,7 +6475,6 @@
 554640 ?ReleaseAll@WaveFile@@IAEXXZ
 554C00 AddEventToStreamBuffer
 554ED0 GetTrackEvent
-555440 ?bLooped@@3HA
 555560 ?ConvertToBuffer@@YAHKPAU_ConvertInfo@@@Z
 5557A0 ??6ErrorStream@@QAEAAV0@P6AAAV0@AAV0@@Z@Z
 5557B0 ?output@ErrorStream@@IAEXXZ

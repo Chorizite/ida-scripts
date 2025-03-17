@@ -35,25 +35,34 @@ def export_diaphora_map(diff_db_path, pdb_db_path, out_cursor):
   conn2 = sqlite3.connect(pdb_db_path)
   cursor2 = conn2.cursor()
 
-  cursor.execute('''SELECT name, address, address2, type FROM results where type="partial" or type="best"''') 
+  # Load all existing symbols into memory first
+  out_cursor.execute('SELECT symbol FROM diaphora_map')
+  existing_symbols = set(row[0] for row in out_cursor.fetchall())
+
+  cursor.execute('''SELECT name, address, address2, type FROM results where type="partial" or type="best" and description != "Equal assembly"''') 
     
   output = cursor.fetchall()
   total_matches = len(output)
   partial_count = 0
   best_count = 0
   processed = 0
+  skipped = 0
 
   for row in output:
     processed += 1
-    if processed % (max(math.floor(total_matches / 100), 100)) == 0:
-      percentage = (processed / total_matches) * 100
-      ida_kernwin.replace_wait_box(f"Exporting diaphora matches... {processed}/{total_matches} ({percentage:.1f}%)")
+    percentage = (processed / total_matches) * 100
+    idahelpers.update_wait_box(f"Exporting diaphora matches... {processed}/{total_matches} ({percentage:.1f}%)")
     
     method_name = _get_mangled_name(cursor2, row[1])
     if method_name is None:
       continue
     
-    # Insert into diaphora_map table
+    # Skip if symbol already exists
+    if method_name in existing_symbols:
+      skipped += 1
+      continue
+
+    # Insert into diaphora_map table if it doesn't exist
     out_cursor.execute('''
       INSERT INTO diaphora_map (symbol, address, mapped_address)
       VALUES (?, ?, ?)
@@ -69,6 +78,7 @@ def export_diaphora_map(diff_db_path, pdb_db_path, out_cursor):
   print(f"    [+] Exported Partial matches: {partial_count:,}")
   print(f"    [+] Exported Best matches: {best_count:,}")
   print(f"    [+] Exported {total:,} matches")
+  print(f"    [+] Skipped {skipped:,} existing symbols")
 
   conn.close()
   conn2.close()
@@ -97,9 +107,8 @@ def export_diaphora_multimatches(diff_db_path, pdb_db_path, out_cursor):
   export_count = 0
   for row in output:
     export_count += 1
-    if export_count % (max(math.floor(total_matches / 100), 100)) == 0:
-      percentage = (export_count / total_matches) * 100
-      ida_kernwin.replace_wait_box(f"Exporting multi-matches... {export_count}/{total_matches} ({percentage:.1f}%)")
+    percentage = (export_count / total_matches) * 100
+    idahelpers.update_wait_box(f"Exporting multi-matches... {export_count}/{total_matches} ({percentage:.1f}%)")
     
     method_name = _get_mangled_name(cursor2, row[1])
     if method_name is None:
@@ -133,11 +142,12 @@ def export_yonneh_map(map_file, out_cursor):
                 continue
             total_lines += 1
     
-    # Load all existing mapped addresses into memory
-    out_cursor.execute('SELECT mapped_address FROM diaphora_map')
-    existing_addresses = set(int(row[0]) for row in out_cursor.fetchall())
+    # Load all existing symbols into memory
+    out_cursor.execute('SELECT symbol FROM diaphora_map')
+    existing_symbols = set(row[0] for row in out_cursor.fetchall())
     
     count = 0
+    skipped = 0
     processed = 0
     batch_size = 1000
     pending_inserts = []
@@ -153,9 +163,8 @@ def export_yonneh_map(map_file, out_cursor):
                 continue
                 
             processed += 1
-            if processed % (max(math.floor(total_lines / 100), 100)) == 0:
-                percentage = (processed / total_lines) * 100
-                ida_kernwin.replace_wait_box(f"Importing symbols from yonneh.map... {processed}/{total_lines} ({percentage:.1f}%)")
+            percentage = (processed / total_lines) * 100
+            idahelpers.update_wait_box(f"Importing symbols from yonneh.map... {processed}/{total_lines} ({percentage:.1f}%)")
             
             address = int(parts[0], 16)
             symbol = parts[1]
@@ -163,18 +172,22 @@ def export_yonneh_map(map_file, out_cursor):
             if not idahelpers.is_named_data_symbol(symbol):
                 continue
             
-            # Check if address exists in our set
-            if address not in existing_addresses:
-                pending_inserts.append((symbol, address, address))
-                count += 1
+            # Skip if symbol already exists
+            if symbol in existing_symbols:
+                skipped += 1
+                continue
                 
-                # Execute batch insert when we reach batch_size
-                if len(pending_inserts) >= batch_size:
-                    out_cursor.executemany(
-                        'INSERT INTO diaphora_map (symbol, address, mapped_address) VALUES (?, ?, ?)',
-                        pending_inserts
-                    )
-                    pending_inserts = []
+            pending_inserts.append((symbol, address, address))
+            count += 1
+            existing_symbols.add(symbol)
+                
+            # Execute batch insert when we reach batch_size
+            if len(pending_inserts) >= batch_size:
+                out_cursor.executemany(
+                    'INSERT INTO diaphora_map (symbol, address, mapped_address) VALUES (?, ?, ?)',
+                    pending_inserts
+                )
+                pending_inserts = []
     
     # Insert any remaining entries
     if pending_inserts:
@@ -183,4 +196,5 @@ def export_yonneh_map(map_file, out_cursor):
             pending_inserts
         )
                 
-    print(f"    [+] Imported {count:,} new symbols from yonneh.map") 
+    print(f"    [+] Imported {count:,} new symbols from yonneh.map")
+    print(f"    [+] Skipped {skipped:,} existing symbols") 

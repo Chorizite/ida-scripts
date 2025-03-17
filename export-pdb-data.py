@@ -11,17 +11,24 @@ import os
 import sqlite3
 import importlib
 import math
+import ida_typeinf
 import ida_kernwin
  
 import lib.exporters.symbols_exporter as symbols_exporter
 import lib.exporters.diaphora_exporter as diaphora_exporter
 import lib.exporters.method_stackframe_exporter as method_stackframe_exporter
 import lib.exporters.pstring_array_exporter as pstring_array_exporter
+import lib.exporters.wstring_exporter as wstring_exporter
+import lib.exporters.method_innards_exporter as method_innards_exporter
+import lib.exporters.vtable_exporter as vtable_exporter
 
 importlib.reload(symbols_exporter)
 importlib.reload(diaphora_exporter)
 importlib.reload(method_stackframe_exporter)
 importlib.reload(pstring_array_exporter)
+importlib.reload(wstring_exporter)
+importlib.reload(method_innards_exporter)
+importlib.reload(vtable_exporter)
 
 def get_file_path(relative_path):
   """Returns the absolute path of a file relative to the script's directory."""
@@ -49,7 +56,9 @@ def create_tables(cursor):
         mapped_address INTEGER,
         size INTEGER,
         type TEXT,
-        section TEXT
+        section TEXT,
+        value TEXT,
+        func_type TEXT
     )
     ''')
     
@@ -132,6 +141,53 @@ def create_tables(cursor):
         FOREIGN KEY (array_id) REFERENCES pstring_arrays (id)
     )
     ''')
+
+    # Create wstrings table if it doesn't exist
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS wstrings (
+            func_name TEXT,
+            func_offset INTEGER,
+            data_name TEXT,
+            rdata_name TEXT,
+            text_value TEXT
+        )
+    """)
+    
+    # Create disasm table if it doesn't exist
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS disasm (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol_id INTEGER NOT NULL,
+            line_number INTEGER NOT NULL,
+            address INTEGER NOT NULL,
+            line_text TEXT NOT NULL,
+            FOREIGN KEY (symbol_id) REFERENCES symbols (id)
+        )
+    """)
+
+    # Create vtables table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS vtables (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        address INTEGER NOT NULL,
+        size INTEGER NOT NULL,
+        class_name TEXT NOT NULL
+    )
+    ''')
+
+    # Create vtable members table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS vtable_members (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vtable_id INTEGER NOT NULL,
+        member_index INTEGER NOT NULL,
+        member_name TEXT NOT NULL,
+        member_address INTEGER NOT NULL,
+        member_type TEXT,
+        FOREIGN KEY (vtable_id) REFERENCES vtables (id)
+    )
+    ''')
     
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_stackframes_func_name ON method_stackframes(function_name)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_stackframes_func_addr ON method_stackframes(function_address)')
@@ -154,56 +210,50 @@ def create_tables(cursor):
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_pstring_arrays_address ON pstring_arrays(array_address)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_pstring_array_members_array_id ON pstring_array_members(array_id)')
 
+    # Add indexes for disasm table
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_disasm_symbol_id ON disasm(symbol_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_disasm_address ON disasm(address)')
+
+    # Add indexes for vtables
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_vtables_name ON vtables(name)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_vtables_address ON vtables(address)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_vtable_members_vtable_id ON vtable_members(vtable_id)')
+
 def is_undefined_function_name(name):
     """Check if a function name is undefined."""
     return name.startswith("sub_") or name.startswith("nullsub_") or name.startswith("$")
 
 def print_unmatched_symbols(cursor):
-    global log_dir
-    print("  [+] Checking for unmatched symbols...")
+    """Print a report of symbols that don't have any matches in diaphora_map."""
+    print("  [+] Generating unmatched symbols report")
     
-    # Query to find .text symbols that don't have matching entries in diaphora_map
     cursor.execute('''
-        SELECT s.name, s.address 
-        FROM symbols s 
-        LEFT JOIN diaphora_map d ON s.name = d.symbol
-        WHERE s.section = '.text' AND d.symbol IS NULL
+    SELECT s.name, s.address, s.section
+    FROM symbols s
+    LEFT JOIN diaphora_map d ON s.name = d.symbol
+    WHERE d.symbol IS NULL
+    ORDER BY s.section, s.name
     ''')
     
-    unmatched = cursor.fetchall()
-    total_symbols = len(unmatched)
-    print(f"    [+] Found {total_symbols:,} symbols to process")
+    results = cursor.fetchall()
     
-    total_unmatched = 0
-    current = 0
-    # log unmatched symbols
-    with open(unmatched_symbols_path, "w") as f:
-      if unmatched:
-          for name, addr in unmatched:
-              current += 1
-              if current % (max(math.floor(total_symbols / 100), 100)) == 0:
-                  ida_kernwin.replace_wait_box(f"Checking for unmatched symbols... {current:,}/{total_symbols:,} ({(current/total_symbols)*100:.1f}%)")
-              
-              if is_undefined_function_name(name): continue
-              f.write(f"{name} at 0x{addr:x}\n")
-              total_unmatched += 1
-              # Query to find any multimatches for this address that don't exist in diaphora_map
-              cursor.execute('''
-                  SELECT m.name, m.address2, m.ratio, m.description
-                  FROM diaphora_multimatches m
-                  LEFT JOIN diaphora_map d ON CAST(d.address AS INTEGER) = m.address2
-                  WHERE m.address = ? AND d.address IS NULL
-                  ORDER BY CAST(m.ratio AS FLOAT) DESC
-              ''', (addr,))
-              
-              multimatches = cursor.fetchall()
-              if multimatches:
-                  for match_name, match_addr, ratio, desc in multimatches:
-                      f.write(f"  - 0x{match_addr:x} (Ratio: {ratio} | {desc})\n")
-              else:
-                  f.write("  - No potential matches found\n")
-                
-    print(f"    [+] Found Total {total_unmatched:,} unmatched subroutine symbols (logged to {unmatched_symbols_path})")
+    # Write results to file
+    with open(unmatched_symbols_path, 'w') as f:
+        f.write("Unmatched Symbols Report\n")
+        f.write("=======================\n\n")
+        
+        current_section = None
+        for name, addr, section in results:
+            if section != current_section:
+                f.write(f"\n{section} Section:\n")
+                f.write("-" * (len(section) + 9) + "\n")
+                current_section = section
+            
+            f.write(f"{name} at {hex(addr)}\n")
+    
+    print(f"    [+] Found {len(results)} unmatched symbols")
+    print(f"    [+] Report saved to: {unmatched_symbols_path}")
+
 
 
 def main():
@@ -224,9 +274,17 @@ def main():
     # Export subroutine symbols
     symbols_exporter.dump_subroutines(cursor)
 
+    """
     # Export data symbols
     symbols_exporter.dump_segment_symbols(".data", cursor)
     symbols_exporter.dump_segment_symbols(".rdata", cursor)
+
+    # Export yonneh map
+    if not os.path.exists(yonneh_map_path):
+      print(f"  [-] Error: yonneh_map_path does not exist: {yonneh_map_path}")
+      return
+
+    diaphora_exporter.export_yonneh_map(yonneh_map_path, cursor)
 
     # Export diaphora map
     if not os.path.exists(diff_db_path):
@@ -239,12 +297,8 @@ def main():
     diaphora_exporter.export_diaphora_map(diff_db_path, pdb_db_path, cursor)
     diaphora_exporter.export_diaphora_multimatches(diff_db_path, pdb_db_path, cursor)
 
-    # Export yonneh map
-    if not os.path.exists(yonneh_map_path):
-      print(f"  [-] Error: yonneh_map_path does not exist: {yonneh_map_path}")
-      return
-
-    diaphora_exporter.export_yonneh_map(yonneh_map_path, cursor)
+    # Export method disassembly
+    method_innards_exporter.dump_method_disasm(cursor)
 
     # Export stack frames
     method_stackframe_exporter.dump_method_stackframes(cursor)
@@ -252,8 +306,15 @@ def main():
     # Export PStringBase arrays
     pstring_array_exporter.dump_pstring_arrays(cursor)
 
+    # Export wide string initializer functions and symbols
+    wstring_exporter.export_wide_string_init_funcs(cursor)
+
+    # Export vtables
+    vtable_exporter.dump_vtables(cursor)
+
     # Print unmatched symbols report
     print_unmatched_symbols(cursor)
+    """
 
     # Commit changes and close connection
     conn.commit()

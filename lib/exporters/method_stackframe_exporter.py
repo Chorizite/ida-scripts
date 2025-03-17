@@ -30,9 +30,8 @@ def dump_method_stackframes(cursor):
     # Iterate through all functions in the database
     for func_ea in idautils.Functions():
         processed_funcs += 1
-        if processed_funcs % (max(math.floor(total_funcs / 100), 100)) == 0:
-            percentage = (processed_funcs / total_funcs) * 100
-            ida_kernwin.replace_wait_box(f"Exporting function stack frames... ({processed_funcs}/{total_funcs}) - {percentage:.1f}%")
+        percentage = (processed_funcs / total_funcs) * 100
+        idahelpers.update_wait_box(f"Exporting function stack frames... ({processed_funcs}/{total_funcs}) - {percentage:.1f}%")
         
         # Get the function object
         func = ida_funcs.get_func(func_ea)

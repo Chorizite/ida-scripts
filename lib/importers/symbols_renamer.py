@@ -22,7 +22,8 @@ def rename_patterned_subroutines(cursor):
     "pstring_array_init": 0,
     "compute_str_hash": 0,
     "null_exit": 0,
-    "wide_string_init": 0
+    "wide_string_init": 0,
+    "static_math_init": 0
   }
 
   # Helper function to process functions with a specific pattern matcher
@@ -30,9 +31,8 @@ def rename_patterned_subroutines(cursor):
     processed = 0
     for func_ea in idautils.Functions():
       processed += 1
-      if processed % (max(math.floor(total_funcs / 100), 100)) == 0:
-        percentage = (processed / total_funcs) * 100
-        ida_kernwin.replace_wait_box(f"Checking for {pattern_name} functions... {processed}/{total_funcs} ({percentage:.1f}%)")
+      percentage = (processed / total_funcs) * 100
+      idahelpers.update_wait_box(f"Checking for {pattern_name} functions... ({processed}/{total_funcs}) - {percentage:.1f}%")
 
       # Get the function object and name
       func = ida_funcs.get_func(func_ea)
@@ -61,6 +61,7 @@ def rename_patterned_subroutines(cursor):
   process_functions_with_pattern("compute_str_hash", _try_match_compute_str_hash_func)
   process_functions_with_pattern("pstring_array_init", _try_match_pstring_array_init_func, [cursor])
   process_functions_with_pattern("wide_string_init", _try_match_wide_string_init_func, [cursor])
+  process_functions_with_pattern("static_math_init", _try_match_static_math_init_func, [cursor])
 
   # Print results
   print(f"    [+] Renamed {renamed_counts['init_string']:,} string initializer subroutines")
@@ -69,6 +70,34 @@ def rename_patterned_subroutines(cursor):
   print(f"    [+] Renamed {renamed_counts['compute_str_hash']:,} compute string hash subroutines")
   print(f"    [+] Renamed {renamed_counts['null_exit']:,} null exit subroutines")
   print(f"    [+] Renamed {renamed_counts['wide_string_init']:,} wide string initializer subroutines")
+  print(f"    [+] Renamed {renamed_counts['static_math_init']:,} static math initializer subroutines")
+
+def _try_match_static_math_init_func(ea, cursor):
+    """Check if the function is a static math initializer by analyzing its characteristics"""
+
+    """
+.text:00722930 sub_722930      proc near               ; DATA XREF: .data:0081751C↓o
+.text:00722930                 fld     ds:flt_802C70
+.text:00722936                 fmul    ds:flt_7938B4
+.text:0072293C                 fstp    flt_8FADEC
+.text:00722942                 retn
+.text:00722942 sub_722930      endp
+    """
+
+    disasm_lines = idahelpers.get_function_disasm_lines(ea)
+    if len(disasm_lines) < 3 or not "retn" in disasm_lines[-1]:
+        return False
+    
+    valid_opcodes = ["fld", "fmul", "fstp", "retn", "fadd", "fsub", "fdiv", "fsubr", "fdivr"]
+
+    for line in disasm_lines:
+        if not any(opcode in line for opcode in valid_opcodes):
+            return False
+    
+    idahelpers.name_until_free_index(ea, f"xxgen__InitStaticMath")
+
+    return True
+
 
 def _try_match_wide_string_init_func(ea, cursor):
     """Check if the function is a wide string initializer by analyzing its characteristics"""
@@ -99,29 +128,56 @@ def _try_match_wide_string_init_func(ea, cursor):
 
     success, matches = idahelpers.is_function_disasm_match(ea, [
       r"push    offset (?P<string_rdata_name>\S+);?",
-      r"call    ds:wcslen",
+      r"call    ds.*wcslen",
       r"add     esp, 4",
       r"push    eax",
       r"mov     ecx, offset (?P<string_data_name>\S+)",
       r"call    .*allocate_ref_buffer.*PStringBase",
-      r"call    ds:wcscpy",
+      r"call    ds.*wcscpy",
       r"push    offset (?P<deref_sub_name>\S+)",
       r"call    _atexit",
       r"add     esp, 0Ch",
       r"retn",
-    ], strict=True, disasm_lines=disasm_lines)
+    ], strict=False, disasm_lines=disasm_lines)
 
     if not success:
         return False
     
     clean_name = re.sub(r'[^a-zA-Z0-9_]', '_', matches['string_rdata_name']).strip("_")
-    dname = matches['string_data_name']
-    rname = matches['string_rdata_name']
-    deref_name = matches['deref_sub_name']
+    dname = matches['string_data_name'].strip(";")
+    rname = matches['string_rdata_name'].strip(";")
+    deref_name = matches['deref_sub_name'].strip(";")
 
-    if not idahelpers.is_named_data_symbol(dname):
+    # Look up the rdata name in the wstrings table
+    cursor.execute("""
+        SELECT data_name
+        FROM wstrings
+        WHERE rdata_name = ?
+    """, (rname,))
+    
+    db_match = cursor.fetchone()
+    
+    if db_match and not idahelpers.is_named_data_symbol(dname):
         dword_ea = _get_address_from_name(dname)
-        _rename_data_entry(dword_ea, rname, "ID")
+        if dword_ea:
+            # Use the data_name from the database
+            db_data_name = db_match[0]
+            idx = idahelpers.name_until_free_index(dword_ea, db_data_name)
+            
+            # Set the type to PStringBase<ushort>
+            type_str = "PStringBase<ushort>"
+            str_tif = idahelpers.create_tinfo_from_string(type_str, 2)
+            str_ptr_tif = ida_typeinf.tinfo_t()
+            str_ptr_tif.create_ptr(str_tif)
+            ida_typeinf.apply_tinfo(dword_ea, str_ptr_tif, ida_typeinf.TINFO_DEFINITE)
+            
+            # Rename the function with the same index if one was used
+            if idx:
+                clean_name = f"{clean_name}_{idx}"
+    
+    deref_ea = idc.get_name_ea_simple(deref_name)
+    if deref_ea:
+        idahelpers.name_until_free_index(deref_ea, f"xxgen__Exit_DerefWideString__{clean_name}")
 
     idahelpers.name_until_free_index(ea, f"xxgen__InitWideString__{clean_name}")
 
@@ -158,9 +214,6 @@ def _try_match_null_exit_func(ea):
     """
     disasm_lines = idahelpers.get_function_disasm_lines(ea)
 
-    if ea == 0x0070ACC0:
-        print(f"here: {disasm_lines}")
-
     if len(disasm_lines) != 4:
         return False
 
@@ -171,17 +224,10 @@ def _try_match_null_exit_func(ea):
         r"retn",
     ], strict=True, disasm_lines=disasm_lines)
 
-
-    if ea == 0x0070ACC0:
-        print(success, matches)
-
     if not success:
         return False
 
-    res = idahelpers.name_until_free_index(ea, f"xxgen__Exit_nullsub")
-    if ea == 0x0070ACC0:
-        print(f"res: {res}")
-
+    idahelpers.name_until_free_index(ea, f"xxgen__Exit_nullsub")
 
     return True
 
@@ -248,16 +294,27 @@ def _try_match_init_string_func(ea):
     .text:0070F2F9                 pop     ecx
     .text:0070F2FA                 retn
     .text:0070F2FA sub_70F2E0      endp
+
+    .text:006C8580 $E255           proc near               ; DATA XREF: .data:0080B97C↓o
+    .text:006C8580                 push    offset aFrameloop ; "FrameLoop"
+    .text:006C8585                 mov     ecx, (offset byte_8388D0+534h)
+    .text:006C858A                 call    ??0?$PStringBase@D@@QAE@PBD@Z ; PStringBase<char>::PStringBase<char>(char const *)
+    .text:006C858F                 push    offset $E256_15 ; void (__cdecl *)()
+    .text:006C8594                 call    _atexit
+    .text:006C8599                 pop     ecx
+    .text:006C859A                 retn
+    .text:006C859A $E255           endp
     """
 
     # quick check to see if the function is an init string function
     disasm_lines = idahelpers.get_function_disasm_lines(ea)
     if len(disasm_lines) != 7 or not "call    _atexit" in disasm_lines[4]:
+        if ea == 0x006C8580: print(f"failed early: {ea:08X} {disasm_lines}")
         return False
 
     success, matches = idahelpers.is_function_disasm_match(ea, [
         r"push    offset (?P<string_rdata_name>\S+)",
-        r"mov     ecx, offset (?P<string_data_name>\S+)",
+        r"mov     ecx, (offset (?P<string_data_name>\S+)|.*_(?P<string_data_offset>[0-9A-Z]+\+[0-9A-Z]+h))",
         r"call",
         r"push    offset (?P<deref_sub_name>\S+)",
         r"call    _atexit",
@@ -266,15 +323,29 @@ def _try_match_init_string_func(ea):
     ], strict=True, disasm_lines=disasm_lines)
     
     if not success:
+        if ea == 0x006C8580: print(f"failed is_function_disasm_match: {ea:08X} {disasm_lines}")
         return False
 
     clean_name = re.sub(r'[^a-zA-Z0-9_]', '_', matches['string_rdata_name']).strip("_")
     dname = matches['string_data_name']
+    doffset = matches['string_data_offset']
     rname = matches['string_rdata_name']
     deref_name = matches['deref_sub_name']
 
+    if doffset:
+        data_offset = int(doffset.split("+")[0], 16)
+        data_offset_offset = int(doffset.split("+")[1].strip("h"), 16)
+        data_offset += data_offset_offset
+        dname = f"byte_8388D0+{data_offset:02X}"
+        print(f"doffset: {doffset}")
+
+        tmp_name = "__" + hex(data_offset) + "__" + clean_name
+        if not ida_name.set_name(data_offset, tmp_name, ida_name.SN_NOWARN):
+            print(f"    [+] Failed to set name for {data_offset}: {tmp_name}")
+        dname = tmp_name
+
     # Handle case where data symbol needs to be renamed
-    if not idahelpers.is_named_data_symbol(dname):
+    if not idahelpers.is_named_data_symbol(dname) or dname.startswith("__"):
         dword_ea = _get_address_from_name(dname)
         idx = _rename_data_entry(dword_ea, rname, "KW")
         # change the type of the array to PStringBase<char> of size db_data_size / 4
@@ -289,6 +360,9 @@ def _try_match_init_string_func(ea):
         _rename_string_functions(ea, deref_name, clean_name, idx)
     else:
         idahelpers.name_until_free_index(ea, f"xxgen__InitString__{clean_name}")
+        dword_ea = _get_address_from_name(dname)
+        idx = _rename_data_entry(dword_ea, rname, "KW")
+        _rename_string_functions(ea, deref_name, clean_name, idx)
     
     return True
 
@@ -353,8 +427,23 @@ def _try_match_pstring_array_init_func(ea, cursor):
       .text:007246A7                 pop     ecx
       .text:007246A8                 retn
       .text:007246A8 $E186_42        endp
-    """
 
+    .text:007254D0 sub_7254D0      proc near               ; DATA XREF: .data:00817BA0↓o
+    .text:007254D0                 push    offset aLow     ; "Low"
+    .text:007254D5                 mov     ecx, offset unk_8FC734
+    .text:007254DA                 call    ??0?$PStringBase@D@@QAE@PBD@Z ; PStringBase<char>::PStringBase<char>(char const *)
+    .text:007254DF                 push    offset aMedium  ; "Medium"
+    .text:007254E4                 mov     ecx, offset unk_8FC738
+    .text:007254E9                 call    ??0?$PStringBase@D@@QAE@PBD@Z ; PStringBase<char>::PStringBase<char>(char const *)
+    .text:007254EE                 push    offset aHigh    ; "High"
+    .text:007254F3                 mov     ecx, offset unk_8FC73C
+    .text:007254F8                 call    ??0?$PStringBase@D@@QAE@PBD@Z ; PStringBase<char>::PStringBase<char>(char const *)
+    .text:007254FD                 push    offset sub_792520 ; void (__cdecl *)()
+    .text:00725502                 call    _atexit
+    .text:00725507                 pop     ecx
+    .text:00725508                 retn
+    .text:00725508 sub_7254D0      endp
+    """
     # quick check to see if the function is a PStringBase array initializer
     disasm_lines = idahelpers.get_function_disasm_lines(ea)
     if not len(disasm_lines) > 6 or not "retn" in disasm_lines[-1] or not "call    _atexit" in disasm_lines[-3]:
@@ -379,7 +468,7 @@ def _try_match_pstring_array_init_func(ea, cursor):
         member_ea = idc.get_name_ea_simple(member_name)
         if member_ea == idaapi.BADADDR:
             continue
-        member_value = idc.get_strlit_contents(member_ea, -1, idc.STRTYPE_C)
+        member_value = idahelpers.get_data_value(member_ea)
         if member_value:
             member_values.append(member_value)
 
@@ -469,20 +558,19 @@ def _rename_string_functions(init_func_ea, deref_name, clean_name, idx=None):
     init_name = f"xxgen__Init_String__{clean_name}{name_suffix}"
     deref_name_new = f"xxgen__Exit_DerefString__{clean_name}{name_suffix}"
 
-    # Rename init function
-    if not idc.set_name(init_func_ea, init_name, idc.SN_NOWARN):
-        print(f"    [+] Failed to rename {init_func_ea:08X} to {init_name}")
+    idahelpers.name_until_free_index(init_func_ea, init_name)
 
     # Rename dereference function if needed
     if not idahelpers.is_named_data_symbol(deref_name):
         deref_ea = _get_address_from_name(deref_name)
-        if not idc.set_name(deref_ea, deref_name_new, idc.SN_NOWARN):
-            print(f"    [+] Failed to rename {deref_ea:08X} to {deref_name_new}")
+        idahelpers.name_until_free_index(deref_ea, deref_name_new)
 
 def _rename_data_entry(dword_ea, name, prefix="KW"):
     """Rename a data entry to follow the PREFIX_NAME_1 pattern"""
     if not dword_ea:
         return
+    
+    name = name.startswith("a") and name[1:] or name
         
     current_name = ida_name.get_name(dword_ea)
     if not current_name or not current_name.startswith("dword_"):
