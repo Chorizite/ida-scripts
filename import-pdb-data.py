@@ -87,7 +87,6 @@ def main():
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
-    """
     # import types
     print(f"  [+] Importing types from {types_file}")
     idahelpers.update_wait_box(f"Importing types from {types_file}")
@@ -126,14 +125,14 @@ def main():
     # import vtables
     vtable_importer.import_vtables(cursor)
 
-    """
+
     # rename unnamed subroutines
     symbols_importer.retype_functions(cursor)
 
+    print_stats(cursor)
+
     # hide wait box
     ida_kernwin.hide_wait_box()
-
-    #print_stats(cursor)
 
     # Commit changes and close connection
     conn.commit()

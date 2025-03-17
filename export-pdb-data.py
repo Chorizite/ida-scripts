@@ -274,7 +274,6 @@ def main():
     # Export subroutine symbols
     symbols_exporter.dump_subroutines(cursor)
 
-    """
     # Export data symbols
     symbols_exporter.dump_segment_symbols(".data", cursor)
     symbols_exporter.dump_segment_symbols(".rdata", cursor)
@@ -314,7 +313,6 @@ def main():
 
     # Print unmatched symbols report
     print_unmatched_symbols(cursor)
-    """
 
     # Commit changes and close connection
     conn.commit()
